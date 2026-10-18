@@ -1,16 +1,20 @@
 "use client"
 
 import { useEffect, useRef, useState, useSyncExternalStore } from "react"
+import TestPanel from "@/components/dev/TestPanel"
 import Background from "@/components/fx/Background"
-import Game from "@/components/game/Game"
+import Game, { type ImageView } from "@/components/game/Game"
 import type { ImageStatus } from "@/components/game/MislookImage"
 import HowToPlay from "@/components/HowToPlay"
 import Result, { type RoundResult } from "@/components/result/Result"
 import SiteStats, { type Stats } from "@/components/SiteStats"
 import { imageSrc, images, type PuzzleImage, STAGES, settings } from "@/lib/content"
 import { dayIndexFor, imageIndexFor } from "@/lib/daily"
+import { ALL_STYLES, type AnyStyleId, KNOBS, type StageView, type Tuning } from "@/lib/gl/scene"
 
-type Day = { comingSoon: true } | { comingSoon: false; number: number; image: PuzzleImage }
+type Day =
+  | { comingSoon: true }
+  | { comingSoon: false; number: number; imageIndex: number; image: PuzzleImage }
 
 // Resolved once on the client: the page is static, so the date can't come from the server.
 let resolvedDay: Day | undefined
@@ -24,7 +28,12 @@ function getDay(): Day {
   resolvedDay =
     dayIndex < 0
       ? { comingSoon: true }
-      : { comingSoon: false, number: dayIndex + 1, image: images[imageIndexFor(dayIndex, images.length)] }
+      : {
+          comingSoon: false,
+          number: dayIndex + 1,
+          imageIndex: imageIndexFor(dayIndex, images.length),
+          image: images[imageIndexFor(dayIndex, images.length)],
+        }
   return resolvedDay
 }
 const noSubscribe = () => () => {}
@@ -33,6 +42,11 @@ const noSubscribe = () => () => {}
 const DUMMY_STATS: Stats = { visits: 12481, visitors: 3207 }
 
 type Phase = "howToPlay" | "game" | "result"
+
+const SHOW_TEST_PANEL = process.env.NODE_ENV === "development"
+
+/** Dev test panel overrides: display only, never the round itself. */
+type TestView = { imageIndex?: number; style?: AnyStyleId; stage?: StageView }
 
 export default function Mislook() {
   const day = useSyncExternalStore(noSubscribe, getDay, () => null)
@@ -46,6 +60,8 @@ export default function Mislook() {
   const [wrongGuesses, setWrongGuesses] = useState(0)
   const [busy, setBusy] = useState(false)
   const [result, setResult] = useState<RoundResult | null>(null)
+  const [testView, setTestView] = useState<TestView>({})
+  const [tuning, setTuning] = useState<Tuning>({})
   const startedAt = useRef(0)
   const timers = useRef<number[]>([])
 
@@ -54,6 +70,16 @@ export default function Mislook() {
 
   const stats = <SiteStats stats={day ? DUMMY_STATS : null} />
   const puzzle = day && !day.comingSoon ? day : null
+  const shownImageIndex = testView.imageIndex ?? (puzzle ? puzzle.imageIndex : 0)
+  const shownImage = images[shownImageIndex]
+  const view = (shownStage: StageView): ImageView => ({
+    src: imageSrc(shownImage),
+    style: testView.style ?? shownImage.style,
+    stage: shownStage,
+    seed: `mislook-${puzzle?.number ?? 0}`,
+    focus: shownImage.focus,
+    tuning,
+  })
   const bonus = settings.scoring.timeBonusMax
   const points = Math.max(
     settings.scoring.winFloor,
@@ -98,6 +124,7 @@ export default function Mislook() {
     if (busy) return
     if (stage === STAGES) return finish(false)
     setBusy(true)
+    setTestView((t) => ({ ...t, stage: undefined }))
     setStage((s) => s + 1)
     setLocked(false)
     later(() => setBusy(false), 1000)
@@ -149,7 +176,7 @@ export default function Mislook() {
       {phase === "game" && puzzle && (
         <Game
           number={puzzle.number}
-          imageSrc={imageSrc(puzzle.image)}
+          view={view(testView.stage ?? (stage as StageView))}
           stage={stage}
           points={points}
           bonus={bonus}
@@ -161,14 +188,34 @@ export default function Mislook() {
           onGuess={guess}
           onReveal={reveal}
           stats={stats}
+          testPanel={
+            SHOW_TEST_PANEL && (
+              <TestPanel
+                imageIndex={shownImageIndex}
+                imageCount={images.length}
+                style={testView.style ?? shownImage.style}
+                stage={testView.stage ?? (stage as StageView)}
+                tuning={tuning}
+                onCycleImage={() => setTestView((t) => ({ ...t, imageIndex: (shownImageIndex + 1) % images.length }))}
+                onCycleStyle={() => {
+                  const current = ALL_STYLES.indexOf(testView.style ?? shownImage.style)
+                  setTestView((t) => ({ ...t, style: ALL_STYLES[(current + 1) % ALL_STYLES.length] }))
+                }}
+                onStage={(s) => setTestView((t) => ({ ...t, stage: s }))}
+                onTune={(style, values) =>
+                  setTuning((t) => ({ ...t, [style]: { ...t[style], [KNOBS[style].key]: values } }))
+                }
+              />
+            )
+          }
         />
       )}
 
       {phase === "result" && puzzle && result && (
         <Result
           number={puzzle.number}
-          imageSrc={imageSrc(puzzle.image)}
-          answer={puzzle.image.title}
+          view={view(result.stage as StageView)}
+          answer={shownImage.title}
           result={result}
           onCopy={copyResult}
           stats={stats}
