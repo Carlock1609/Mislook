@@ -36,6 +36,8 @@ content/
   images.json             the image list: file, style, title, accepted answers, optional focus
   settings.json           DAY_0, time zone, scoring, and every style's per-stage values
 public/images/            puzzle images
+scripts/
+  measure-difficulty.mjs  scores and calibrates each style's stage difficulty
 documents/                these notes
 ```
 

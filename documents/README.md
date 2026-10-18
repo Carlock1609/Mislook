@@ -27,4 +27,7 @@ npm run lint
 npm run build
 ```
 
+Difficulty calibration: `node scripts/measure-difficulty.mjs --calibrate` (see
+[distortion-styles.md](distortion-styles.md#calibrating-difficulty)).
+
 Code style is Prettier with `--no-semi --print-width 120` (no config file is checked in).
