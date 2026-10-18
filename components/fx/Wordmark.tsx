@@ -1,3 +1,4 @@
+/** The MISLOOK wordmark with its offset echo. `compact` is the top-bar size. */
 export default function Wordmark({ compact = false }: { compact?: boolean }) {
   return (
     <div

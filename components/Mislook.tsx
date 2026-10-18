@@ -10,14 +10,17 @@ import Result, { type RoundResult } from "@/components/result/Result"
 import SiteStats, { type Stats } from "@/components/SiteStats"
 import { imageSrc, images, type PuzzleImage, STAGES, settings } from "@/lib/content"
 import { dayIndexFor, imageIndexFor } from "@/lib/daily"
-import { ALL_STYLES, type AnyStyleId, KNOBS, type StageView, type Tuning } from "@/lib/gl/scene"
+import { loadStats } from "@/lib/stats"
+import { type AnyStyleId, KNOBS, type StageView, type Tuning } from "@/lib/gl/scene"
 
+/** Today, as the client works it out: before `DAY_0`, or the puzzle number and image. */
 type Day =
   | { comingSoon: true }
   | { comingSoon: false; number: number; imageIndex: number; image: PuzzleImage }
 
 // Resolved once on the client: the page is static, so the date can't come from the server.
 let resolvedDay: Day | undefined
+/** Today's day (cached). In development `?day=N` previews puzzle number N. */
 function getDay(): Day {
   if (resolvedDay) return resolvedDay
   let dayIndex = dayIndexFor(Date.now(), settings.DAY_0, settings.timeZone)
@@ -36,11 +39,10 @@ function getDay(): Day {
         }
   return resolvedDay
 }
+/** useSyncExternalStore subscriber for a value that never changes after load. */
 const noSubscribe = () => () => {}
 
-// Placeholder numbers until the stats route lands in build step 6.
-const DUMMY_STATS: Stats = { visits: 12481, visitors: 3207 }
-
+/** Which screen is showing. Play never changes the URL. */
 type Phase = "howToPlay" | "game" | "result"
 
 const SHOW_TEST_PANEL = process.env.NODE_ENV === "development"
@@ -48,6 +50,10 @@ const SHOW_TEST_PANEL = process.env.NODE_ENV === "development"
 /** Dev test panel overrides: display only, never the round itself. */
 type TestView = { imageIndex?: number; style?: AnyStyleId; stage?: StageView }
 
+/**
+ * The whole app: picks today's puzzle, holds the round state, and switches
+ * between How to play, Game and Result.
+ */
 export default function Mislook() {
   const day = useSyncExternalStore(noSubscribe, getDay, () => null)
   const [phase, setPhase] = useState<Phase>("howToPlay")
@@ -62,13 +68,22 @@ export default function Mislook() {
   const [result, setResult] = useState<RoundResult | null>(null)
   const [testView, setTestView] = useState<TestView>({})
   const [tuning, setTuning] = useState<Tuning>({})
+  // undefined while loading (shows a dash), null if the request failed (line hidden).
+  const [siteStats, setSiteStats] = useState<Stats | null | undefined>(undefined)
   const startedAt = useRef(0)
   const timers = useRef<number[]>([])
 
   useEffect(() => () => timers.current.forEach((id) => window.clearTimeout(id)), [])
+  useEffect(() => {
+    let cancelled = false
+    loadStats().then((s) => !cancelled && setSiteStats(s))
+    return () => {
+      cancelled = true
+    }
+  }, [])
   const later = (fn: () => void, ms: number) => timers.current.push(window.setTimeout(fn, ms))
 
-  const stats = <SiteStats stats={day ? DUMMY_STATS : null} />
+  const stats = <SiteStats stats={siteStats} />
   const puzzle = day && !day.comingSoon ? day : null
   const shownImageIndex = testView.imageIndex ?? (puzzle ? puzzle.imageIndex : 0)
   const shownImage = images[shownImageIndex]
@@ -86,6 +101,7 @@ export default function Mislook() {
     settings.scoring.stageBase[stage - 1] + bonus - wrongGuesses * settings.scoring.wrongPenalty,
   )
 
+  /** Plays the tunnel transition, then starts the round (the timer starts when the game shows). */
   const play = () => {
     setTunneling(true)
     later(() => {
@@ -95,6 +111,7 @@ export default function Mislook() {
     later(() => setTunneling(false), 1000)
   }
 
+  /** Ends the round after the 1s reveal and shows the result. */
   const finish = (won: boolean) => {
     setBusy(true)
     later(() => {
@@ -110,6 +127,7 @@ export default function Mislook() {
     }, 1000)
   }
 
+  /** Checks a guess: a match wins, a miss locks Guess and costs the wrong-guess penalty. */
   const guess = (text: string) => {
     if (!puzzle || busy || locked) return
     if (puzzle.image.accept.includes(text.trim().toLowerCase())) {
@@ -120,6 +138,7 @@ export default function Mislook() {
     }
   }
 
+  /** Moves to the next stage, or ends the round as a miss on stage 5. */
   const reveal = () => {
     if (busy) return
     if (stage === STAGES) return finish(false)
@@ -130,6 +149,7 @@ export default function Mislook() {
     later(() => setBusy(false), 1000)
   }
 
+  /** Copies spoiler-free share text to the clipboard. Resolves false if the clipboard is blocked. */
   const copyResult = async () => {
     if (!puzzle || !result) return false
     const squares = "■".repeat(result.stage) + "□".repeat(STAGES - result.stage)
@@ -197,10 +217,7 @@ export default function Mislook() {
                 stage={testView.stage ?? (stage as StageView)}
                 tuning={tuning}
                 onCycleImage={() => setTestView((t) => ({ ...t, imageIndex: (shownImageIndex + 1) % images.length }))}
-                onCycleStyle={() => {
-                  const current = ALL_STYLES.indexOf(testView.style ?? shownImage.style)
-                  setTestView((t) => ({ ...t, style: ALL_STYLES[(current + 1) % ALL_STYLES.length] }))
-                }}
+                onStyle={(style) => setTestView((t) => ({ ...t, style }))}
                 onStage={(s) => setTestView((t) => ({ ...t, stage: s }))}
                 onTune={(style, values) =>
                   setTuning((t) => ({ ...t, [style]: { ...t[style], [KNOBS[style].key]: values } }))

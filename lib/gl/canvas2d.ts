@@ -1,10 +1,30 @@
-// Canvas 2D fallback for when WebGL is unavailable: the same settled stages
-// (same scene maths and seeds), with crossfades instead of trippy transitions.
+/**
+ * @file Canvas 2D fallback for when WebGL is unavailable.
+ *
+ * Draws the same settled stages as `webgl.ts` from the same `Scene` and the
+ * same per-pixel maths in `scene.ts`, so seeds and layouts match. It skips the
+ * trippy transitions: every stage change is a plain crossfade.
+ *
+ * Full-screen styles are done per pixel on `ImageData`, which is slow at large
+ * sizes but only runs once per stage change.
+ */
 
+import { GLYPH_PX, glyphAtlas } from "@/lib/gl/glyphs"
 import { createAnimator, type Renderer, type ShowOptions, TRANSITION_MS } from "@/lib/gl/renderer"
 import {
+  asciiCell,
+  ditherValue,
+  echoValue,
+  edgeValue,
   easeInOut,
   fisheyeSource,
+  halftoneValue,
+  liquidSource,
+  type LumaAt,
+  mosaicValue,
+  motionBlurValue,
+  scanlineValue,
+  sliceSource,
   kaleidoscopeSource,
   LUMA,
   meltSource,
@@ -19,24 +39,51 @@ import {
   tunnelSource,
 } from "@/lib/gl/scene"
 
+/** A new size × size canvas that isn't in the document. */
 function offscreen(size: number) {
   const canvas = document.createElement("canvas")
   canvas.width = canvas.height = size
   return canvas
 }
 
+/** Luma (0–1) of the RGBA pixel starting at byte `i`. */
 const luma = (d: Uint8ClampedArray, i: number) => (LUMA[0] * d[i] + LUMA[1] * d[i + 1] + LUMA[2] * d[i + 2]) / 255
 
-/** Sets each pixel to grey `fn(luma, u, v)`, where (u, v) is the pixel centre. */
-function shade(ctx: CanvasRenderingContext2D, size: number, fn: (l: number, u: number, v: number) => number) {
-  const data = ctx.getImageData(0, 0, size, size)
-  const d = data.data
-  for (let i = 0; i < d.length; i += 4) {
-    const p = i / 4
-    const v = Math.round(fn(luma(d, i), ((p % size) + 0.5) / size, (Math.floor(p / size) + 0.5) / size) * 255)
-    d[i] = d[i + 1] = d[i + 2] = v
+/**
+ * The canvas's current contents as a luma grid plus a nearest-pixel sampler,
+ * matching how the shaders read the image texture at any (u, v).
+ */
+function lumaGrid(ctx: CanvasRenderingContext2D, size: number) {
+  const d = ctx.getImageData(0, 0, size, size).data
+  const grid = new Float32Array(size * size)
+  for (let p = 0; p < grid.length; p++) grid[p] = luma(d, p * 4)
+  const lumaAt: LumaAt = (u, v) => {
+    const x = Math.min(size - 1, Math.max(0, Math.floor(u * size)))
+    const y = Math.min(size - 1, Math.max(0, Math.floor(v * size)))
+    return grid[y * size + x]
   }
-  ctx.putImageData(data, 0, 0)
+  return { grid, lumaAt }
+}
+
+/**
+ * Sets each pixel to grey `fn(luma, u, v, lumaAt)`. (u, v) is the pixel centre;
+ * `lumaAt` samples the canvas as it was before this call, for filters that
+ * read neighbours.
+ */
+function shade(
+  ctx: CanvasRenderingContext2D,
+  size: number,
+  fn: (l: number, u: number, v: number, lumaAt: LumaAt) => number,
+) {
+  const { grid, lumaAt } = lumaGrid(ctx, size)
+  const out = ctx.createImageData(size, size)
+  const d = out.data
+  for (let p = 0; p < grid.length; p++) {
+    const v = Math.round(fn(grid[p], ((p % size) + 0.5) / size, (Math.floor(p / size) + 0.5) / size, lumaAt) * 255)
+    d[p * 4] = d[p * 4 + 1] = d[p * 4 + 2] = v
+    d[p * 4 + 3] = 255
+  }
+  ctx.putImageData(out, 0, 0)
 }
 
 /** Redraws each pixel from the source point `source(u, v)` gives (black for null), greyscale unless `colour`. */
@@ -70,7 +117,12 @@ function remap(
   ctx.putImageData(out, 0, 0)
 }
 
-/** Draws one settled scene into a new canvas. */
+/**
+ * Draws one settled scene into a new canvas.
+ * @param image - The loaded puzzle image.
+ * @param scene - What to draw (from `buildScene`).
+ * @param size - Canvas side in device pixels.
+ */
 function drawScene(image: HTMLImageElement, scene: Scene, size: number) {
   const canvas = offscreen(size)
   const ctx = canvas.getContext("2d", { willReadFrequently: true })!
@@ -119,16 +171,6 @@ function drawScene(image: HTMLImageElement, scene: Scene, size: number) {
         const [dx, dy] = rippleOffset(u, v, scene.amplitude, scene.waves, scene.phaseX, scene.phaseY)
         return [mirror(u + dx), mirror(v + dy)]
       })
-      break
-    }
-    case "darkness": {
-      ctx.drawImage(image, 0, 0, size, size)
-      grey()
-      ctx.fillStyle = "#000"
-      ctx.beginPath()
-      ctx.rect(0, 0, size, size)
-      ctx.arc(scene.focusX * size, scene.focusY * size, scene.radius * size, 0, Math.PI * 2)
-      ctx.fill("evenodd")
       break
     }
     case "strips": {
@@ -218,10 +260,72 @@ function drawScene(image: HTMLImageElement, scene: Scene, size: number) {
       shade(ctx, size, (l) => negate(l, scene.invert, scene.contrast))
       break
     }
+    case "slices":
+    case "liquid": {
+      ctx.drawImage(image, 0, 0, size, size)
+      if (scene.colour) break
+      remap(ctx, size, false, (u, v) =>
+        scene.kind === "slices"
+          ? sliceSource(u, v, scene.shift, scene.offsets)
+          : liquidSource(u, v, scene.amplitude, scene.phases),
+      )
+      break
+    }
+    case "ascii": {
+      ctx.drawImage(image, 0, 0, size, size)
+      if (scene.colour) break
+      // One atlas glyph per cell, chosen from the brightness at the cell centre.
+      const { lumaAt } = lumaGrid(ctx, size)
+      const atlas = glyphAtlas()
+      const cells = Math.ceil(1 / scene.cell)
+      const px = scene.cell * size
+      ctx.fillStyle = "#000"
+      ctx.fillRect(0, 0, size, size)
+      for (let y = 0; y < cells; y++) {
+        for (let x = 0; x < cells; x++) {
+          const { glyph } = asciiCell((x + 0.5) * scene.cell, (y + 0.5) * scene.cell, scene.cell, lumaAt)
+          ctx.drawImage(atlas, glyph * GLYPH_PX, 0, GLYPH_PX, GLYPH_PX, x * px, y * px, px, px)
+        }
+      }
+      break
+    }
+    case "echo":
+    case "halftone":
+    case "dither":
+    case "scanlines":
+    case "edges":
+    case "motionBlur":
+    case "mosaic": {
+      ctx.drawImage(image, 0, 0, size, size)
+      if (scene.colour) break
+      shade(ctx, size, (l, u, v, lumaAt) => {
+        switch (scene.kind) {
+          case "echo":
+            return echoValue(u, v, scene.offset, scene.angle, lumaAt)
+          case "halftone":
+            return halftoneValue(u, v, scene.cell, lumaAt)
+          case "dither":
+            return ditherValue(u, v, scene.cell, lumaAt)
+          case "scanlines":
+            return scanlineValue(u, v, scene.cover, scene.lines, lumaAt)
+          case "edges":
+            return edgeValue(u, v, scene.threshold, lumaAt)
+          case "motionBlur":
+            return motionBlurValue(u, v, scene.length, scene.angle, lumaAt)
+          case "mosaic":
+            return mosaicValue(u, v, scene.cell, lumaAt)
+        }
+      })
+      break
+    }
   }
   return canvas
 }
 
+/**
+ * Creates the Canvas 2D fallback renderer on `canvas`.
+ * @returns The renderer, or null when even a 2D context is unavailable.
+ */
 export function createCanvas2DRenderer(canvas: HTMLCanvasElement): Renderer | null {
   const display = canvas.getContext("2d")
   if (!display) return null

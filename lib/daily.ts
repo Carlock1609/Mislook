@@ -4,6 +4,7 @@ const DAY_MS = 86_400_000
 
 type DateParts = { year: number; month: number; day: number; hour: number; minute: number; second: number }
 
+/** Wall-clock date and time of `instant` in `timeZone`, via Intl (handles daylight saving). */
 function zonedParts(instant: number, timeZone: string): DateParts {
   const parts = new Intl.DateTimeFormat("en-US", {
     timeZone,
@@ -32,6 +33,7 @@ export function zonedDateString(instant: number, timeZone: string) {
   return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`
 }
 
+/** Whole days since the Unix epoch for a `YYYY-MM-DD` string, treating it as a UTC date. */
 function dateStringToUtcDay(date: string) {
   const [year, month, day] = date.split("-").map(Number)
   return Date.UTC(year, month - 1, day) / DAY_MS
@@ -47,6 +49,7 @@ export function imageIndexFor(dayIndex: number, count: number) {
   return ((dayIndex % count) + count) % count
 }
 
+/** Milliseconds the zone's wall clock is ahead of UTC at `instant` (negative west of UTC). */
 function zoneOffset(instant: number, timeZone: string) {
   const p = zonedParts(instant, timeZone)
   return Date.UTC(p.year, p.month - 1, p.day, p.hour, p.minute, p.second) - Math.floor(instant / 1000) * 1000
@@ -55,6 +58,9 @@ function zoneOffset(instant: number, timeZone: string) {
 /** The instant of the next midnight in `timeZone` after `instant`. Handles daylight saving. */
 export function nextZonedMidnight(instant: number, timeZone: string) {
   const { year, month, day } = zonedParts(instant, timeZone)
+  // Tomorrow's 00:00 as if the zone were UTC, then shift by the zone offset.
+  // The offset is looked up twice because it can change across the midnight
+  // itself (daylight saving), so the second lookup uses the first estimate.
   const wallMidnight = Date.UTC(year, month - 1, day + 1)
   let guess = wallMidnight - zoneOffset(wallMidnight, timeZone)
   guess = wallMidnight - zoneOffset(guess, timeZone)

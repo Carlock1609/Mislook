@@ -1,5 +1,17 @@
-// Pure description of what each settled stage looks like. Shared by the WebGL
-// renderer and the Canvas 2D fallback so both show identical stages.
+/**
+ * @file Pure description of what each settled stage looks like.
+ *
+ * `buildScene` turns (style, stage, date seed, tuning) into a plain `Scene`
+ * object. Both renderers (`webgl.ts` and the `canvas2d.ts` fallback) draw from
+ * that object and from the per-pixel maths below, so every player sees the
+ * same settled stage whichever renderer they get.
+ *
+ * Conventions used throughout:
+ * - Coordinates are `u, v` in [0, 1] with (0, 0) at the image's top-left.
+ * - Stage 1 is hardest, stage 5 easiest, stage 0 is the clear colour image.
+ * - Anything random comes from `seededRandom(seed + ":" + purpose)`, so a
+ *   given day always looks the same and styles never share a random stream.
+ */
 
 import { settings } from "@/lib/content"
 import { seededRandom, shuffledIndices } from "@/lib/gl/random"
@@ -20,16 +32,30 @@ export const CANDIDATE_STYLES = [
   "negative",
   "kaleidoscope",
 ] as const
-/** Every style the test panel can show, rotation first. */
-export const ALL_STYLES = [...ROTATION_STYLES, "darkness", ...CANDIDATE_STYLES] as const
+/** Further experiments to judge by eye (from an outside list of distortion ideas). Test panel only. */
+export const EXPERIMENT_STYLES = [
+  "rgb-split",
+  "slice-glitch",
+  "liquid-warp",
+  "halftone",
+  "dither",
+  "ascii",
+  "scanlines",
+  "edges",
+  "motion-blur",
+  "mosaic",
+] as const
+/** Every style the test panel can show: rotation, then candidates, then experiments. */
+export const ALL_STYLES = [...ROTATION_STYLES, ...CANDIDATE_STYLES, ...EXPERIMENT_STYLES] as const
+/** Any style id the renderers understand, including test-panel-only ones. */
 export type AnyStyleId = (typeof ALL_STYLES)[number]
 
+/** Human-readable style names for the test panel. */
 export const STYLE_LABELS: Record<AnyStyleId, string> = {
   "tile-shuffle": "Tile shuffle",
   "hidden-tiles": "Hidden tiles",
   "two-tone": "Two-tone",
   ripple: "Ripple",
-  darkness: "Darkness",
   "ring-lock": "Ring lock",
   shredder: "Shredder",
   "rotated-tiles": "Rotated tiles",
@@ -41,15 +67,27 @@ export const STYLE_LABELS: Record<AnyStyleId, string> = {
   tunnel: "Tunnel",
   negative: "Negative",
   kaleidoscope: "Kaleidoscope",
+  "rgb-split": "RGB split",
+  "slice-glitch": "Slice glitch",
+  "liquid-warp": "Liquid warp",
+  halftone: "Halftone",
+  dither: "Ordered dither",
+  ascii: "ASCII",
+  scanlines: "Scanlines",
+  edges: "Edges only",
+  "motion-blur": "Motion blur",
+  mosaic: "Mosaic",
 }
 
-/** The one knob per style that the test panel's intensity slider tunes. */
+/**
+ * The one knob per style that the test panel's intensity slider tunes.
+ * `key` names the per-stage array in `settings.json` under `styles[style]`.
+ */
 export const KNOBS: Record<AnyStyleId, { key: string; min: number; max: number; step: number }> = {
   "tile-shuffle": { key: "outOfPlace", min: 0, max: 1, step: 0.01 },
   "hidden-tiles": { key: "visible", min: 0, max: 1, step: 0.01 },
   "two-tone": { key: "toneLevels", min: 2, max: 12, step: 1 },
   ripple: { key: "amplitude", min: 0, max: 0.25, step: 0.005 },
-  darkness: { key: "radius", min: 0, max: 1, step: 0.01 },
   "ring-lock": { key: "turn", min: 0, max: 1, step: 0.01 },
   shredder: { key: "outOfPlace", min: 0, max: 1, step: 0.01 },
   "rotated-tiles": { key: "turned", min: 0, max: 1, step: 0.01 },
@@ -61,6 +99,16 @@ export const KNOBS: Record<AnyStyleId, { key: string; min: number; max: number; 
   tunnel: { key: "scale", min: 0, max: 0.9, step: 0.01 },
   negative: { key: "contrast", min: 0.05, max: 1, step: 0.01 },
   kaleidoscope: { key: "amount", min: 0, max: 1, step: 0.01 },
+  "rgb-split": { key: "offset", min: 0, max: 0.15, step: 0.001 },
+  "slice-glitch": { key: "shift", min: 0, max: 1, step: 0.01 },
+  "liquid-warp": { key: "amplitude", min: 0, max: 0.2, step: 0.002 },
+  halftone: { key: "cell", min: 0.005, max: 0.1, step: 0.001 },
+  dither: { key: "cell", min: 0.002, max: 0.05, step: 0.0005 },
+  ascii: { key: "cell", min: 0.008, max: 0.08, step: 0.001 },
+  scanlines: { key: "cover", min: 0, max: 0.95, step: 0.01 },
+  edges: { key: "threshold", min: 0.02, max: 1.2, step: 0.01 },
+  "motion-blur": { key: "length", min: 0, max: 0.3, step: 0.002 },
+  mosaic: { key: "cell", min: 0.005, max: 0.15, step: 0.001 },
 }
 
 /** Per-stage values for one style, keyed like settings.json. */
@@ -68,6 +116,11 @@ export type StyleValues = Record<string, number[]>
 /** Test-panel overrides of settings.json, per style. */
 export type Tuning = Partial<Record<AnyStyleId, StyleValues>>
 
+/**
+ * Per-stage values for a style: `settings.json` with any test-panel tuning on top.
+ * @param style - Style id.
+ * @param tuning - Optional overrides from the test panel's intensity slider.
+ */
 export function styleValues(style: AnyStyleId, tuning?: Tuning): StyleValues {
   const base = (settings.styles as Record<string, StyleValues>)[style]
   return { ...base, ...tuning?.[style] }
@@ -76,17 +129,23 @@ export function styleValues(style: AnyStyleId, tuning?: Tuning): StyleValues {
 /** Stage 1–5, or 0 for the clear image. */
 export type StageView = 0 | 1 | 2 | 3 | 4 | 5
 
+/** Where one source tile is drawn (grid cell) and how many quarter turns it is rotated (0–3). */
 export type Tile = { cellX: number; cellY: number; rot: number }
+/** A round keyhole: centre and radius as shares of the side. Radius 0 means closed. */
 export type Hole = { x: number; y: number; r: number }
 /** A triangle of glass: home corners (x, y pairs), the point it turns about, and its nudge. */
 export type Shard = { tri: number[]; pivotX: number; pivotY: number; dx: number; dy: number; rot: number }
 
+/**
+ * Everything a renderer needs to draw one settled stage. `colour` is true only
+ * for the clear image; every distorted stage is greyscale. Transitions
+ * interpolate between two scenes of the same `kind`.
+ */
 export type Scene = { colour: boolean } & (
   | { kind: "tiles"; grid: number; tiles: Tile[] }
   | { kind: "hidden"; grid: number; hidden: boolean[]; delay: number[] }
   | { kind: "twoTone"; levels: number; bias: number }
   | { kind: "ripple"; amplitude: number; waves: number; phaseX: number; phaseY: number }
-  | { kind: "darkness"; radius: number; focusX: number; focusY: number }
   | { kind: "rings"; angles: number[] }
   | { kind: "strips"; slots: number[] }
   | { kind: "keyholes"; holes: Hole[] }
@@ -97,22 +156,44 @@ export type Scene = { colour: boolean } & (
   | { kind: "tunnel"; scale: number; twist: number; centerX: number; centerY: number }
   | { kind: "negative"; invert: number; contrast: number }
   | { kind: "kaleidoscope"; amount: number; segments: number; spin: number; source: number }
+  | { kind: "echo"; offset: number; angle: number }
+  | { kind: "slices"; shift: number; offsets: number[] }
+  | { kind: "liquid"; amplitude: number; phases: number[] }
+  | { kind: "halftone"; cell: number }
+  | { kind: "dither"; cell: number }
+  | { kind: "ascii"; cell: number }
+  | { kind: "scanlines"; cover: number; lines: number }
+  | { kind: "edges"; threshold: number }
+  | { kind: "motionBlur"; length: number; angle: number }
+  | { kind: "mosaic"; cell: number }
 )
 
+/** Inputs to `buildScene`. */
 export type SceneInput = {
   style: AnyStyleId
   stage: StageView
+  /** Date seed, e.g. `mislook-12`: the same for every player on a given day. */
   seed: string
   tuning?: Tuning
+  /** The image's subject as `[x, y]` shares of the side (from images.json); default centre. */
   focus?: [number, number]
 }
 
+/**
+ * Builds the pure description of one settled stage.
+ *
+ * Values marked "fixed" in settings.json (single-element arrays such as
+ * `strips` or `grid`) are the same at every stage so that the 1s transition
+ * between stages can interpolate piece by piece.
+ */
 export function buildScene({ style, stage, seed, tuning, focus }: SceneInput): Scene {
   const values = styleValues(style, tuning)
   const clear = stage === 0
   const at = (key: string) => values[key][stage - 1]
   /** A value that stays the same at every stage, so transitions line up. */
   const fixed = (key: string) => values[key][0]
+  /** The stage-5 value, for styles whose clear stage fades rather than relaxes. */
+  const last = (key: string) => values[key][STAGE_COUNT - 1]
   const grid = settings.tileGrid
   const count = grid * grid
 
@@ -154,14 +235,6 @@ export function buildScene({ style, stage, seed, tuning, focus }: SceneInput): S
         phaseY: random() * Math.PI * 2,
       }
     }
-    case "darkness":
-      return {
-        kind: "darkness",
-        colour: clear,
-        radius: clear ? 1.5 : at("radius"),
-        focusX: focus?.[0] ?? 0.5,
-        focusY: focus?.[1] ?? 0.5,
-      }
     case "ring-lock": {
       const random = seededRandom(`${seed}:rings`)
       const turn = clear ? 0 : at("turn")
@@ -185,7 +258,11 @@ export function buildScene({ style, stage, seed, tuning, focus }: SceneInput): S
       const order = shuffledIndices(g * g, random)
       const turns = order.map(() => 1 + Math.floor(random() * 3))
       const turned = clear ? 0 : Math.round(at("turned") * g * g)
-      const tiles: Tile[] = Array.from({ length: g * g }, (_, i) => ({ cellX: i % g, cellY: Math.floor(i / g), rot: 0 }))
+      const tiles: Tile[] = Array.from({ length: g * g }, (_, i) => ({
+        cellX: i % g,
+        cellY: Math.floor(i / g),
+        rot: 0,
+      }))
       for (let k = 0; k < turned; k++) tiles[order[k]].rot = turns[k]
       return { kind: "tiles", colour: clear, grid: g, tiles }
     }
@@ -195,7 +272,11 @@ export function buildScene({ style, stage, seed, tuning, focus }: SceneInput): S
       return {
         kind: "keyholes",
         colour: clear,
-        holes: holeLayout(seed).map((h, k) => ({ x: h.x, y: h.y, r: k < count ? (clear ? radius : radius * h.size) : 0 })),
+        holes: holeLayout(seed).map((h, k) => ({
+          x: h.x,
+          y: h.y,
+          r: k < count ? (clear ? radius : radius * h.size) : 0,
+        })),
       }
     }
     case "shattered-glass":
@@ -239,7 +320,57 @@ export function buildScene({ style, stage, seed, tuning, focus }: SceneInput): S
         source: random() * Math.PI * 2,
       }
     }
+    case "rgb-split":
+      return { kind: "echo", colour: clear, offset: clear ? 0 : at("offset"), angle: seededAngle(seed, "echo") }
+    case "slice-glitch": {
+      const random = seededRandom(`${seed}:slices`)
+      return {
+        kind: "slices",
+        colour: clear,
+        shift: clear ? 0 : at("shift"),
+        // Each band slides between -1 and 1 times `shift`, never by almost nothing.
+        offsets: Array.from({ length: Math.min(MAX_BANDS, fixed("bands")) }, () => {
+          const sign = random() < 0.5 ? -1 : 1
+          return sign * (0.25 + 0.75 * random())
+        }),
+      }
+    }
+    case "liquid-warp": {
+      const random = seededRandom(`${seed}:liquid`)
+      return {
+        kind: "liquid",
+        colour: clear,
+        amplitude: clear ? 0 : at("amplitude"),
+        phases: [0, 1, 2, 3].map(() => random() * Math.PI * 2),
+      }
+    }
+    // Filter styles keep their stage-5 setting on the clear stage; the final
+    // reveal fades from the filtered image to the photo instead.
+    case "halftone":
+      return { kind: "halftone", colour: clear, cell: clear ? last("cell") : at("cell") }
+    case "dither":
+      return { kind: "dither", colour: clear, cell: clear ? last("cell") : at("cell") }
+    case "ascii":
+      return { kind: "ascii", colour: clear, cell: clear ? last("cell") : at("cell") }
+    case "scanlines":
+      return { kind: "scanlines", colour: clear, cover: clear ? last("cover") : at("cover"), lines: fixed("lines") }
+    case "edges":
+      return { kind: "edges", colour: clear, threshold: clear ? last("threshold") : at("threshold") }
+    case "motion-blur":
+      return {
+        kind: "motionBlur",
+        colour: clear,
+        length: clear ? 0 : at("length"),
+        angle: seededAngle(seed, "motion"),
+      }
+    case "mosaic":
+      return { kind: "mosaic", colour: clear, cell: clear ? last("cell") : at("cell") }
   }
+}
+
+/** A seeded angle in radians for one purpose (direction of a blur, an echo...). */
+function seededAngle(seed: string, purpose: string) {
+  return seededRandom(`${seed}:${purpose}`)() * Math.PI * 2
 }
 
 const STAGE_COUNT = 5
@@ -311,9 +442,20 @@ export function mirror(t: number) {
   return 1 - Math.abs(1 - m)
 }
 
+/** Most rings ring lock supports (size of the shader's uniform array). */
 export const MAX_RINGS = 16
+/** Most keyholes (size of the shader's uniform array). */
 export const MAX_HOLES = 32
+/** Most slice-glitch bands (size of the shader's uniform array). */
+export const MAX_BANDS = 48
+/** Side of the static noise grid, in cells. */
 export const NOISE_SIZE = 256
+/** Glyphs for the ASCII style, darkest first. */
+export const ASCII_GLYPHS = " .:-=+*#%@"
+/** Edge detection samples this far either side, as a share of the side, so both renderers match. */
+export const EDGE_STEP = 1 / 400
+/** Number of taps along the motion-blur line. */
+export const BLUR_TAPS = 24
 /** Rings span the centre to the far corner. */
 const RING_REACH = Math.SQRT1_2
 const FISHEYE_RADIUS = 0.8
@@ -418,7 +560,11 @@ export function drip(u: number, phases: number[]) {
   const t = 2 * Math.PI * u
   const spikes = (0.5 + 0.5 * Math.sin(29 * t + phases[3])) ** 8
   const d =
-    0.3 + 0.22 * Math.sin(3 * t + phases[0]) + 0.16 * Math.sin(7 * t + phases[1]) + 0.12 * Math.sin(17 * t + phases[2]) + 0.5 * spikes
+    0.3 +
+    0.22 * Math.sin(3 * t + phases[0]) +
+    0.16 * Math.sin(7 * t + phases[1]) +
+    0.12 * Math.sin(17 * t + phases[2]) +
+    0.5 * spikes
   return Math.min(1, Math.max(0, d))
 }
 
@@ -487,4 +633,115 @@ export function staticNoise(seed: string) {
 /** Negative: invert, then squash contrast towards mid grey. */
 export const negate = (c: number, invert: number, contrast: number) => 0.5 + (c + (1 - 2 * c) * invert - 0.5) * contrast
 
+/** Reads the source image's luma (0–1) at a texture coordinate. */
+export type LumaAt = (u: number, v: number) => number
+
+/** RGB split (greyscale): three equal copies of the image, offset along a seeded direction. */
+export function echoValue(u: number, v: number, offset: number, angle: number, lumaAt: LumaAt) {
+  const dx = Math.cos(angle) * offset
+  const dy = Math.sin(angle) * offset
+  return (lumaAt(mirror(u - dx), mirror(v - dy)) + lumaAt(u, v) + lumaAt(mirror(u + dx), mirror(v + dy))) / 3
+}
+
+/** Slice glitch: horizontal bands, each slid sideways by its own seeded offset, wrapping around. */
+export function sliceSource(u: number, v: number, shift: number, offsets: number[]): Source {
+  const band = Math.min(offsets.length - 1, Math.floor(v * offsets.length))
+  const su = u + offsets[band] * shift
+  return [su - Math.floor(su), v]
+}
+
+/** Liquid warp: layered, nested sine waves bend the image like heat haze or water. */
+export function liquidSource(u: number, v: number, amplitude: number, phases: number[]): Source {
+  const tau = 2 * Math.PI
+  const dx = Math.sin(tau * (2.3 * v + 0.6 * Math.sin(tau * 1.7 * u + phases[0])) + phases[1])
+  const dy = Math.sin(tau * (2.1 * u + 0.6 * Math.sin(tau * 1.9 * v + phases[2])) + phases[3])
+  return [mirror(u + amplitude * dx), mirror(v + amplitude * dy)]
+}
+
+/**
+ * Halftone: white dots on black on a 45° grid of `cell`-sized cells. Each dot's
+ * radius grows in step with the brightness at its cell centre (full brightness fills the cell).
+ */
+export function halftoneValue(u: number, v: number, cell: number, lumaAt: LumaAt) {
+  const r = Math.SQRT1_2
+  // Into the rotated grid, in cell units.
+  const px = ((u - 0.5) * r - (v - 0.5) * r) / cell
+  const py = ((u - 0.5) * r + (v - 0.5) * r) / cell
+  const cx = Math.floor(px) + 0.5
+  const cy = Math.floor(py) + 0.5
+  // Back out to image space to read the cell centre.
+  const su = 0.5 + (cx * r + cy * r) * cell
+  const sv = 0.5 + (-cx * r + cy * r) * cell
+  const radius = lumaAt(clamp01(su), clamp01(sv)) * Math.SQRT1_2
+  return Math.hypot(px - cx, py - cy) < radius ? 1 : 0
+}
+
+/** 4×4 Bayer matrix entry (0–15) for integer cell coordinates, built from the 2×2 pattern [[0, 2], [3, 1]]. */
+export function bayer4(x: number, y: number) {
+  const b2 = (a: number, b: number) => (2 * a + 3 * b) % 4
+  return 4 * b2(x % 2, y % 2) + b2(Math.floor(x / 2) % 2, Math.floor(y / 2) % 2)
+}
+
+/** Ordered dither: big `cell`-sized pixels, each pure black or white against a Bayer threshold. */
+export function ditherValue(u: number, v: number, cell: number, lumaAt: LumaAt) {
+  const x = Math.floor(u / cell)
+  const y = Math.floor(v / cell)
+  const l = lumaAt(clamp01((x + 0.5) * cell), clamp01((y + 0.5) * cell))
+  return l > (bayer4(x, y) + 0.5) / 16 ? 1 : 0
+}
+
+/**
+ * ASCII: which glyph covers this point and where inside its cell the point is.
+ * Brighter cells get denser glyphs from `ASCII_GLYPHS`.
+ */
+export function asciiCell(u: number, v: number, cell: number, lumaAt: LumaAt) {
+  const x = Math.floor(u / cell)
+  const y = Math.floor(v / cell)
+  const l = lumaAt(clamp01((x + 0.5) * cell), clamp01((y + 0.5) * cell))
+  return {
+    glyph: Math.min(ASCII_GLYPHS.length - 1, Math.floor(l * ASCII_GLYPHS.length)),
+    localX: u / cell - x,
+    localY: v / cell - y,
+  }
+}
+
+/** Scanlines: `lines` dark bands across the image, each covering `cover` of its row. */
+export function scanlineValue(u: number, v: number, cover: number, lines: number, lumaAt: LumaAt) {
+  const t = v * lines - Math.floor(v * lines)
+  return t < cover ? 0 : lumaAt(u, v)
+}
+
+/** Edges only: Sobel edge strength, shown white on black above `threshold`. */
+export function edgeValue(u: number, v: number, threshold: number, lumaAt: LumaAt) {
+  const s = EDGE_STEP
+  const l = (dx: number, dy: number) => lumaAt(clamp01(u + dx * s), clamp01(v + dy * s))
+  const gx = l(1, -1) + 2 * l(1, 0) + l(1, 1) - l(-1, -1) - 2 * l(-1, 0) - l(-1, 1)
+  const gy = l(-1, 1) + 2 * l(0, 1) + l(1, 1) - l(-1, -1) - 2 * l(0, -1) - l(1, -1)
+  return smoothstep(threshold, threshold + 0.15, Math.hypot(gx, gy))
+}
+
+/** Motion blur: the average of `BLUR_TAPS` samples along a seeded direction, `length` long. */
+export function motionBlurValue(u: number, v: number, length: number, angle: number, lumaAt: LumaAt) {
+  const dx = Math.cos(angle) * length
+  const dy = Math.sin(angle) * length
+  let sum = 0
+  for (let i = 0; i < BLUR_TAPS; i++) {
+    const t = i / (BLUR_TAPS - 1) - 0.5
+    sum += lumaAt(mirror(u + dx * t), mirror(v + dy * t))
+  }
+  return sum / BLUR_TAPS
+}
+
+/** Mosaic: big flat `cell`-sized blocks, each the brightness at its centre. */
+export function mosaicValue(u: number, v: number, cell: number, lumaAt: LumaAt) {
+  return lumaAt(clamp01((Math.floor(u / cell) + 0.5) * cell), clamp01((Math.floor(v / cell) + 0.5) * cell))
+}
+
+const clamp01 = (t: number) => Math.min(1, Math.max(0, t))
+const smoothstep = (a: number, b: number, t: number) => {
+  const x = clamp01((t - a) / (b - a))
+  return x * x * (3 - 2 * x)
+}
+
+/** Cubic ease-in-out, used for every stage transition. */
 export const easeInOut = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2)

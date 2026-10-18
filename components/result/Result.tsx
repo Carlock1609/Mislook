@@ -8,6 +8,7 @@ import { button, panel } from "@/components/ui"
 import { copy, fill, STAGES, settings } from "@/lib/content"
 import { formatHms, formatMss, nextZonedMidnight } from "@/lib/daily"
 
+/** How a round ended. `stage` is the stage the player won on, or reached on a miss. */
 export type RoundResult = {
   won: boolean
   stage: number
@@ -16,6 +17,7 @@ export type RoundResult = {
   wrongGuesses: number
 }
 
+/** Hours, minutes and seconds until the next Pacific midnight, ticking every second. */
 function NextImageCountdown() {
   const [now, setNow] = useState<number | null>(null)
 
@@ -33,6 +35,7 @@ function NextImageCountdown() {
   )
 }
 
+/** Result screen: the image resolves to clear, then the score, answer, share button and countdown. */
 export default function Result({
   number,
   view,

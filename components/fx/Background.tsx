@@ -1,3 +1,4 @@
+/** Op-art background (pure CSS for now; see `.op-art` in globals.css). Dimmed during the game. */
 export default function Background({ dim }: { dim: boolean }) {
   return (
     <div className="op-art" data-dim={dim} aria-hidden="true">

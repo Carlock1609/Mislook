@@ -1,209 +1,42 @@
-// Plain WebGL 1 renderer: one pass draws the style, a second pass adds the
-// transition glitch (slices + RGB split) and handles greyscale vs colour.
+/**
+ * @file Plain WebGL 1 renderer (no libraries).
+ *
+ * Each frame is two passes:
+ * 1. **Style pass** into an offscreen framebuffer: `drawStyle` draws the scene
+ *    (or the in-between of two scenes during a transition).
+ * 2. **Post pass** to the screen: glitch slices and RGB split while a
+ *    transition plays, a crossfade when the style kind changes, and greyscale
+ *    for every stage except the clear image.
+ *
+ * Shader sources live in `shaders.ts`; the per-stage maths in `scene.ts`.
+ */
 
+import { glyphAtlas } from "@/lib/gl/glyphs"
 import { createAnimator, type Renderer, type ShowOptions, TRANSITION_MS } from "@/lib/gl/renderer"
-import { easeInOut, MAX_HOLES, MAX_RINGS, NOISE_SIZE, type Scene, staticNoise } from "@/lib/gl/scene"
+import { easeInOut, MAX_BANDS, MAX_HOLES, NOISE_SIZE, type Scene, staticNoise } from "@/lib/gl/scene"
+import {
+  CANDIDATE_FRAGMENT,
+  EXPERIMENT_FRAGMENT,
+  POST_FRAGMENT,
+  STYLE_FRAGMENT,
+  TILE_FRAGMENT,
+  VERTEX,
+} from "@/lib/gl/shaders"
 
-const VERTEX = `
-attribute vec2 a_pos;
-attribute vec2 a_uv;
-varying vec2 v_uv;
-void main() {
-  v_uv = a_uv;
-  gl_Position = vec4(a_pos.x * 2.0 - 1.0, 1.0 - a_pos.y * 2.0, 0.0, 1.0);
-}`
-
-const PRECISION = `
-#ifdef GL_FRAGMENT_PRECISION_HIGH
-precision highp float;
-#else
-precision mediump float;
-#endif
-`
-
-const TILE_FRAGMENT = `${PRECISION}
-uniform sampler2D u_image;
-uniform float u_solid;
-varying vec2 v_uv;
-void main() {
-  bool off = any(lessThan(v_uv, vec2(0.0))) || any(greaterThan(v_uv, vec2(1.0)));
-  gl_FragColor = u_solid > 0.5 || off ? vec4(0.0, 0.0, 0.0, 1.0) : vec4(texture2D(u_image, v_uv).rgb, 1.0);
-}`
-
-// Keep the maths in step with posterize / rippleOffset / mirror in scene.ts.
-const STYLE_FRAGMENT = `${PRECISION}
-uniform sampler2D u_image;
-uniform float u_mode;
-uniform vec2 u_levels;
-uniform vec2 u_bias;
-uniform float u_mix;
-uniform float u_amp;
-uniform float u_waves;
-uniform vec2 u_phase;
-uniform float u_radius;
-uniform vec2 u_focus;
-uniform float u_px;
-varying vec2 v_uv;
-
-float luma(vec3 c) { return dot(c, vec3(0.2126, 0.7152, 0.0722)); }
-float mirror(float t) { return 1.0 - abs(1.0 - mod(t, 2.0)); }
-vec3 poster(vec3 c, float levels, float bias) {
-  if (levels < 1.5) return c;
-  float cut = bias * 0.35;
-  float x = clamp((luma(c) - cut) / (1.0 - cut), 0.0, 1.0);
-  return vec3(min(floor(x * levels), levels - 1.0) / (levels - 1.0));
-}
-
-void main() {
-  vec2 uv = v_uv;
-  if (u_mode > 1.5 && u_mode < 2.5) {
-    uv = vec2(
-      mirror(uv.x + u_amp * sin(6.2831853 * u_waves * uv.y + u_phase.x)),
-      mirror(uv.y + u_amp * sin(6.2831853 * u_waves * uv.x + u_phase.y))
-    );
-  }
-  vec3 c = texture2D(u_image, uv).rgb;
-  if (u_mode > 0.5 && u_mode < 1.5) {
-    c = mix(poster(c, u_levels.x, u_bias.x), poster(c, u_levels.y, u_bias.y), u_mix);
-  }
-  if (u_mode > 2.5) {
-    c *= 1.0 - smoothstep(u_radius - u_px, u_radius + u_px, distance(v_uv, u_focus));
-  }
-  gl_FragColor = vec4(c, 1.0);
-}`
-
-// Test-panel candidate styles, in their own program so the v1 shader stays small.
-// Keep the maths in step with the *Source / drip / negate functions in scene.ts.
-const CANDIDATE_FRAGMENT = `${PRECISION}
-uniform sampler2D u_image;
-uniform sampler2D u_noise;
-uniform float u_mode;
-uniform float u_angles[${MAX_RINGS}];
-uniform float u_ringCount;
-uniform vec4 u_phases;
-uniform float u_amount;
-uniform vec2 u_center;
-uniform float u_strength;
-uniform float u_twist;
-uniform float u_segments;
-uniform vec2 u_spin;
-uniform vec3 u_holes[${MAX_HOLES}];
-uniform vec2 u_tone;
-uniform float u_px;
-varying vec2 v_uv;
-
-const float TAU = 6.2831853;
-float luma(vec3 c) { return dot(c, vec3(0.2126, 0.7152, 0.0722)); }
-float mirror(float t) { return 1.0 - abs(1.0 - mod(t, 2.0)); }
-bool inside(vec2 p) { return p.x >= 0.0 && p.x <= 1.0 && p.y >= 0.0 && p.y <= 1.0; }
-vec2 turn(vec2 q, float a) { float c = cos(a); float s = sin(a); return vec2(q.x * c - q.y * s, q.x * s + q.y * c); }
-float drip(float u) {
-  float t = TAU * u;
-  float spikes = pow(0.5 + 0.5 * sin(29.0 * t + u_phases.w), 8.0);
-  return clamp(0.3 + 0.22 * sin(3.0 * t + u_phases.x) + 0.16 * sin(7.0 * t + u_phases.y)
-    + 0.12 * sin(17.0 * t + u_phases.z) + 0.5 * spikes, 0.0, 1.0);
-}
-
-void main() {
-  vec2 uv = v_uv;
-  float keep = 1.0;
-  if (u_mode < 1.5) {
-    // Ring lock
-    vec2 q = uv - 0.5;
-    float ring = min(u_ringCount - 1.0, floor(length(q) / (0.70710678 / u_ringCount)));
-    float a = 0.0;
-    for (int i = 0; i < ${MAX_RINGS}; i++) if (float(i) == ring) a = u_angles[i];
-    uv = 0.5 + turn(q, a);
-    if (!inside(uv)) keep = 0.0;
-  } else if (u_mode < 2.5) {
-    // Melt
-    uv.y = max(0.0, uv.y - u_amount * drip(uv.x));
-  } else if (u_mode > 3.5 && u_mode < 4.5) {
-    // Fisheye
-    vec2 q = uv - u_center;
-    float r = length(q) / 0.8;
-    if (r < 1.0 && r > 0.0) uv = u_center + q * pow(r, u_strength);
-  } else if (u_mode > 4.5 && u_mode < 5.5) {
-    // Tunnel
-    if (u_strength >= 0.02) {
-      for (int i = 0; i < 16; i++) {
-        vec2 n = u_center + turn(uv - u_center, -u_twist) / u_strength;
-        if (!inside(n)) break;
-        uv = n;
-      }
-    }
-  } else if (u_mode > 6.5 && u_mode < 7.5) {
-    // Kaleidoscope
-    vec2 q = uv - 0.5;
-    float wedge = TAU / u_segments;
-    float a = mod(atan(q.y, q.x) + u_spin.x, wedge);
-    if (a > wedge * 0.5) a = wedge - a;
-    a += u_spin.y;
-    vec2 k = 0.5 + length(q) * vec2(cos(a), sin(a));
-    uv = vec2(mirror(mix(uv.x, k.x, u_amount)), mirror(mix(uv.y, k.y, u_amount)));
-  }
-
-  vec3 c = texture2D(u_image, uv).rgb * keep;
-  if (u_mode > 2.5 && u_mode < 3.5) {
-    // Static: frozen noise, never animated.
-    c = mix(c, vec3(texture2D(u_noise, v_uv).r), u_amount);
-  } else if (u_mode > 5.5 && u_mode < 6.5) {
-    // Negative
-    c = 0.5 + (mix(c, 1.0 - c, u_tone.x) - 0.5) * u_tone.y;
-  } else if (u_mode > 7.5) {
-    // Keyholes
-    float open = 0.0;
-    for (int i = 0; i < ${MAX_HOLES}; i++) {
-      vec3 h = u_holes[i];
-      if (h.z > 0.0) open = max(open, 1.0 - smoothstep(h.z - u_px, h.z + u_px, distance(v_uv, h.xy)));
-    }
-    c *= open;
-  }
-  gl_FragColor = vec4(c, 1.0);
-}`
-
-const POST_FRAGMENT = `${PRECISION}
-uniform sampler2D u_a;
-uniform sampler2D u_b;
-uniform float u_mix;
-uniform float u_glitch;
-uniform float u_step;
-uniform float u_dense;
-uniform float u_colour;
-varying vec2 v_uv;
-
-float luma(vec3 c) { return dot(c, vec3(0.2126, 0.7152, 0.0722)); }
-float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
-vec3 frame(vec2 uv) {
-  vec2 t = vec2(uv.x, 1.0 - uv.y);
-  return mix(texture2D(u_a, t).rgb, texture2D(u_b, t).rgb, u_mix);
-}
-
-void main() {
-  vec2 uv = v_uv;
-  // Glitch slices: a few horizontal bands slide sideways. The pattern only
-  // changes at u_step boundaries (3 per transition), never per frame.
-  float bands = mix(14.0, 30.0, u_dense);
-  float band = floor(uv.y * bands);
-  float on = step(0.62 - u_dense * 0.17, hash(vec2(band, u_step + 1.0)));
-  uv.x = clamp(uv.x + (hash(vec2(band + 7.0, u_step)) - 0.5) * 0.18 * u_glitch * on, 0.0, 1.0);
-
-  // Chromatic split.
-  float s = 0.014 * u_glitch * (1.0 + u_dense * 0.7);
-  vec3 r = frame(uv + vec2(s, 0.0));
-  vec3 g = frame(uv);
-  vec3 b = frame(uv - vec2(s, 0.0));
-  vec3 grey = vec3(luma(r), luma(g), luma(b));
-  vec3 colour = vec3(r.r, g.g, b.b);
-  gl_FragColor = vec4(mix(grey, colour, u_colour), 1.0);
-}`
-
+/** Texture units: 0 image, 1–2 post-pass framebuffers, then the lookup textures. */
 const NOISE_UNIT = 3
+const GLYPH_UNIT = 4
 
+/** An offscreen colour buffer the style pass renders into. */
 type Target = { texture: WebGLTexture; framebuffer: WebGLFramebuffer }
 
+/** Two triangles covering the image: x, y, u, v per vertex. */
 const FULL_QUAD = new Float32Array([0, 0, 0, 0, 1, 0, 1, 0, 0, 1, 0, 1, 0, 1, 0, 1, 1, 0, 1, 0, 1, 1, 1, 1])
 
+/**
+ * Creates the WebGL renderer on `canvas`.
+ * @returns The renderer, or null when WebGL is unavailable (use the Canvas 2D fallback).
+ */
 export function createWebGLRenderer(canvas: HTMLCanvasElement): Renderer | null {
   const gl = canvas.getContext("webgl", { alpha: false, antialias: false, premultipliedAlpha: false })
   if (!gl) return null
@@ -221,11 +54,16 @@ export function createWebGLRenderer(canvas: HTMLCanvasElement): Renderer | null 
   let tileProgram: WebGLProgram | null = null
   let styleProgram: WebGLProgram | null = null
   let postProgram: WebGLProgram | null = null
-  // Compiled on first use, so a device that can't build it still plays the v1 styles.
+  // Test-panel programs, compiled on first use so a device that can't build
+  // them still plays the v1 styles.
   let candidateProgram: WebGLProgram | null = null
+  let experimentProgram: WebGLProgram | null = null
+  // Lookup textures, made on first use.
   let noise: { seed: string; texture: WebGLTexture } | null = null
+  let glyphs: WebGLTexture | null = null
   const uniforms = new Map<WebGLProgram, Map<string, WebGLUniformLocation | null>>()
 
+  /** Compiles one shader; throws with the info log on failure (unless the context is lost). */
   function compile(type: number, source: string) {
     const shader = ctx.createShader(type)!
     ctx.shaderSource(shader, source)
@@ -236,6 +74,7 @@ export function createWebGLRenderer(canvas: HTMLCanvasElement): Renderer | null 
     return shader
   }
 
+  /** Links the shared vertex shader with `fragment`, binding a_pos to 0 and a_uv to 1. */
   function program(fragment: string) {
     const p = ctx.createProgram()!
     ctx.attachShader(p, compile(ctx.VERTEX_SHADER, VERTEX))
@@ -250,12 +89,14 @@ export function createWebGLRenderer(canvas: HTMLCanvasElement): Renderer | null 
     return p
   }
 
+  /** Cached uniform location lookup. */
   function uniform(p: WebGLProgram, name: string) {
     const cache = uniforms.get(p)!
     if (!cache.has(name)) cache.set(name, ctx.getUniformLocation(p, name))
     return cache.get(name)!
   }
 
+  /** A new linear-filtered, edge-clamped texture, bound to the active unit. */
   function texture() {
     const t = ctx.createTexture()!
     ctx.bindTexture(ctx.TEXTURE_2D, t)
@@ -266,6 +107,7 @@ export function createWebGLRenderer(canvas: HTMLCanvasElement): Renderer | null 
     return t
   }
 
+  /** A size × size RGBA framebuffer for the style pass. */
   function makeTarget(): Target {
     const t = texture()
     ctx.texImage2D(ctx.TEXTURE_2D, 0, ctx.RGBA, size, size, 0, ctx.RGBA, ctx.UNSIGNED_BYTE, null)
@@ -284,13 +126,16 @@ export function createWebGLRenderer(canvas: HTMLCanvasElement): Renderer | null 
     targets = null
   }
 
+  /** Creates every GPU resource. Runs at start and after a lost context is restored. */
   function init() {
     uniforms.clear()
     tileProgram = program(TILE_FRAGMENT)
     styleProgram = program(STYLE_FRAGMENT)
     postProgram = program(POST_FRAGMENT)
     candidateProgram = null
+    experimentProgram = null
     noise = null
+    glyphs = null
     buffer = ctx.createBuffer()
     targets = [makeTarget(), makeTarget()]
     imageTexture = null
@@ -303,6 +148,7 @@ export function createWebGLRenderer(canvas: HTMLCanvasElement): Renderer | null 
     ctx.texImage2D(ctx.TEXTURE_2D, 0, ctx.RGBA, ctx.RGBA, ctx.UNSIGNED_BYTE, img)
   }
 
+  /** The frozen static noise for `seed` as a nearest-filtered luminance texture (cached). */
   function noiseTexture(seed: string) {
     if (noise?.seed === seed) return noise.texture
     if (noise) ctx.deleteTexture(noise.texture)
@@ -318,6 +164,17 @@ export function createWebGLRenderer(canvas: HTMLCanvasElement): Renderer | null 
     return t
   }
 
+  /** The ASCII glyph atlas as a texture (cached). */
+  function glyphTexture() {
+    if (glyphs) return glyphs
+    // Its own unit, so creating it doesn't unbind the image on unit 0.
+    ctx.activeTexture(ctx.TEXTURE0 + GLYPH_UNIT)
+    glyphs = texture()
+    ctx.texImage2D(ctx.TEXTURE_2D, 0, ctx.RGBA, ctx.RGBA, ctx.UNSIGNED_BYTE, glyphAtlas())
+    return glyphs
+  }
+
+  /** Uploads `vertices` (x, y, u, v per vertex) and draws them as triangles with program `p`. */
   function draw(p: WebGLProgram, vertices: Float32Array) {
     ctx.useProgram(p)
     ctx.bindBuffer(ctx.ARRAY_BUFFER, buffer)
@@ -329,6 +186,7 @@ export function createWebGLRenderer(canvas: HTMLCanvasElement): Renderer | null 
     ctx.drawArrays(ctx.TRIANGLES, 0, vertices.length / 4)
   }
 
+  /** Binds texture `t` to `unit` and points sampler `name` of program `p` at it. */
   function bindImage(p: WebGLProgram, name: string, unit: number, t: WebGLTexture | null) {
     ctx.activeTexture(ctx.TEXTURE0 + unit)
     ctx.bindTexture(ctx.TEXTURE_2D, t)
@@ -336,7 +194,13 @@ export function createWebGLRenderer(canvas: HTMLCanvasElement): Renderer | null 
     ctx.uniform1i(uniform(p, name), unit)
   }
 
-  // Appends a (possibly rotated) square quad: centre (cx, cy), half-size h, angle in radians.
+  /**
+   * Appends a (possibly rotated) rectangle as two triangles.
+   * @param cx - Centre x. @param cy - Centre y.
+   * @param w - Half width. @param h - Half height.
+   * @param angle - Rotation in radians about the centre.
+   * @param uv - Texture rectangle `[u0, v0, u1, v1]`.
+   */
   function pushQuad(out: number[], cx: number, cy: number, w: number, h: number, angle: number, uv: number[]) {
     const [u0, v0, u1, v1] = uv
     const cos = Math.cos(angle)
@@ -352,10 +216,15 @@ export function createWebGLRenderer(canvas: HTMLCanvasElement): Renderer | null 
     corner(w, h, u1, v1)
   }
 
+  /** Quarter turns to radians; 3 turns goes -90° so tiles take the short way home. */
   const turnAngle = (rot: number) => ((rot === 3 ? -1 : rot) * Math.PI) / 2
   const lerp = (a: number, b: number, t: number) => a + (b - a) * t
 
-  /** Draws the style for `from`→`to` at eased progress `e` into the bound framebuffer. */
+  /**
+   * Draws the style for `from`→`to` at eased progress `e` (0–1) into the bound
+   * framebuffer. Geometry styles build vertex lists; full-screen styles set
+   * uniforms on one of the full-screen programs.
+   */
   function drawStyle(from: Scene, to: Scene, e: number) {
     ctx.clearColor(0, 0, 0, 1)
     ctx.clear(ctx.COLOR_BUFFER_BIT)
@@ -363,6 +232,8 @@ export function createWebGLRenderer(canvas: HTMLCanvasElement): Renderer | null 
     const set1 = (name: string, v: number) => ctx.uniform1f(uniform(style, name), v)
     const set2 = (name: string, a: number, b: number) => ctx.uniform2f(uniform(style, name), a, b)
 
+    // Tile shuffle and rotated tiles: each source tile slides and turns from
+    // its old cell/rotation to its new one.
     if (to.kind === "tiles" && from.kind === "tiles") {
       const g = to.grid
       const half = 0.5 / g
@@ -388,6 +259,7 @@ export function createWebGLRenderer(canvas: HTMLCanvasElement): Renderer | null 
       return
     }
 
+    // Shredder: full-height strips slide sideways back into order.
     if (to.kind === "strips" && from.kind === "strips") {
       const n = to.slots.length
       const inset = image ? 0.5 / image.naturalWidth : 0
@@ -402,6 +274,8 @@ export function createWebGLRenderer(canvas: HTMLCanvasElement): Renderer | null 
       return
     }
 
+    // Shattered glass: each triangle is turned about its pivot and nudged;
+    // the texture coordinates stay at its home corners.
     if (to.kind === "shards" && from.kind === "shards") {
       const vertices: number[] = []
       to.shards.forEach((shard, i) => {
@@ -414,7 +288,12 @@ export function createWebGLRenderer(canvas: HTMLCanvasElement): Renderer | null 
         for (let k = 0; k < 6; k += 2) {
           const x = shard.tri[k] - shard.pivotX
           const y = shard.tri[k + 1] - shard.pivotY
-          vertices.push(shard.pivotX + x * cos - y * sin + dx, shard.pivotY + x * sin + y * cos + dy, shard.tri[k], shard.tri[k + 1])
+          vertices.push(
+            shard.pivotX + x * cos - y * sin + dx,
+            shard.pivotY + x * sin + y * cos + dy,
+            shard.tri[k],
+            shard.tri[k + 1],
+          )
         }
       })
       bindImage(tileProgram!, "u_image", 0, imageTexture)
@@ -423,7 +302,7 @@ export function createWebGLRenderer(canvas: HTMLCanvasElement): Renderer | null 
       return
     }
 
-    if (drawCandidate(from, to, e)) return
+    if (drawCandidate(from, to, e) || drawExperiment(from, to, e)) return
 
     bindImage(style, "u_image", 0, imageTexture)
     set1("u_mode", 0)
@@ -441,10 +320,6 @@ export function createWebGLRenderer(canvas: HTMLCanvasElement): Renderer | null 
       // The waves travel during the transition and come back to the seeded phase.
       const swing = Math.sin(Math.PI * e) * Math.PI
       set2("u_phase", to.phaseX + swing, to.phaseY + swing)
-    } else if (to.kind === "darkness" && from.kind === "darkness") {
-      set1("u_mode", 3)
-      set1("u_radius", lerp(from.radius, to.radius, e))
-      set2("u_focus", to.focusX, to.focusY)
     }
     draw(style, FULL_QUAD)
 
@@ -522,6 +397,73 @@ export function createWebGLRenderer(canvas: HTMLCanvasElement): Renderer | null 
     return true
   }
 
+  /** Full-screen experiment styles. Returns false when `to` isn't one. */
+  function drawExperiment(from: Scene, to: Scene, e: number) {
+    const modes: Partial<Record<Scene["kind"], number>> = {
+      echo: 1,
+      slices: 2,
+      liquid: 3,
+      halftone: 4,
+      dither: 5,
+      ascii: 6,
+      scanlines: 7,
+      edges: 8,
+      motionBlur: 9,
+      mosaic: 10,
+    }
+    const mode = modes[to.kind]
+    if (!mode || from.kind !== to.kind) return false
+    experimentProgram ??= program(EXPERIMENT_FRAGMENT)
+    const p = experimentProgram
+    const set1 = (name: string, v: number) => ctx.uniform1f(uniform(p, name), v)
+    bindImage(p, "u_image", 0, imageTexture)
+    set1("u_mode", mode)
+    set1("u_px", 1 / size)
+    // Filter styles fade to the photo on the final reveal (see EXPERIMENT_FRAGMENT).
+    set1("u_reveal", lerp(from.colour ? 1 : 0, to.colour ? 1 : 0, e))
+
+    if (to.kind === "echo" && from.kind === "echo") {
+      set1("u_amount", lerp(from.offset, to.offset, e))
+      set1("u_angle", to.angle)
+    } else if (to.kind === "slices" && from.kind === "slices") {
+      // Bands slide back into line.
+      set1("u_amount", lerp(from.shift, to.shift, e))
+      set1("u_bandCount", to.offsets.length)
+      const bands = new Float32Array(MAX_BANDS)
+      bands.set(to.offsets)
+      ctx.uniform1fv(uniform(p, "u_bands"), bands)
+    } else if (to.kind === "liquid" && from.kind === "liquid") {
+      set1("u_amount", lerp(from.amplitude, to.amplitude, e))
+      // The waves flow during the transition and come back to the seeded phase.
+      const swing = Math.sin(Math.PI * e) * Math.PI
+      ctx.uniform4fv(uniform(p, "u_phases"), new Float32Array(to.phases.map((ph) => ph + swing)))
+    } else if (to.kind === "halftone" && from.kind === "halftone") {
+      set1("u_amount", lerp(from.cell, to.cell, e))
+    } else if (to.kind === "dither" && from.kind === "dither") {
+      set1("u_amount", lerp(from.cell, to.cell, e))
+    } else if (to.kind === "ascii" && from.kind === "ascii") {
+      bindImage(p, "u_glyphs", GLYPH_UNIT, glyphTexture())
+      set1("u_amount", lerp(from.cell, to.cell, e))
+    } else if (to.kind === "scanlines" && from.kind === "scanlines") {
+      set1("u_amount", lerp(from.cover, to.cover, e))
+      set1("u_lines", to.lines)
+    } else if (to.kind === "edges" && from.kind === "edges") {
+      set1("u_amount", lerp(from.threshold, to.threshold, e))
+    } else if (to.kind === "motionBlur" && from.kind === "motionBlur") {
+      set1("u_amount", lerp(from.length, to.length, e))
+      set1("u_angle", to.angle)
+    } else if (to.kind === "mosaic" && from.kind === "mosaic") {
+      set1("u_amount", lerp(from.cell, to.cell, e))
+    }
+    draw(p, FULL_QUAD)
+    return true
+  }
+
+  /**
+   * Renders one frame of `from`→`to` at linear progress `p` (0–1).
+   * Same-kind scenes interpolate inside the style pass; different kinds (or
+   * reduced motion) render both and crossfade in the post pass.
+   */
   function render(from: Scene, to: Scene, p: number, options: ShowOptions) {
     if (!image || !targets || ctx.isContextLost()) return
     const [a, b] = targets
@@ -544,7 +486,10 @@ export function createWebGLRenderer(canvas: HTMLCanvasElement): Renderer | null 
     bindImage(post, "u_b", 2, crossfade ? b.texture : a.texture)
     const colourT = final && !options.reduced ? Math.min(1, Math.max(0, (p - 0.5) / 0.5)) : e
     ctx.uniform1f(uniform(post, "u_mix"), crossfade ? e : 0)
-    ctx.uniform1f(uniform(post, "u_glitch"), animated && !options.reduced ? Math.sin(Math.PI * p) * (final ? 1 : 0.75) : 0)
+    ctx.uniform1f(
+      uniform(post, "u_glitch"),
+      animated && !options.reduced ? Math.sin(Math.PI * p) * (final ? 1 : 0.75) : 0,
+    )
     ctx.uniform1f(uniform(post, "u_step"), Math.min(2, Math.floor(p * 3)))
     ctx.uniform1f(uniform(post, "u_dense"), final ? 1 : 0)
     ctx.uniform1f(uniform(post, "u_colour"), lerp(from.colour ? 1 : 0, to.colour ? 1 : 0, colourT))
@@ -606,6 +551,8 @@ export function createWebGLRenderer(canvas: HTMLCanvasElement): Renderer | null 
       imageTexture = null
       if (noise) ctx.deleteTexture(noise.texture)
       noise = null
+      if (glyphs) ctx.deleteTexture(glyphs)
+      glyphs = null
     },
   }
 }

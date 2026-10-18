@@ -24,6 +24,7 @@ export const viewport: Viewport = {
   interactiveWidget: "resizes-content",
 }
 
+/** Root HTML shell: fonts as CSS variables, global styles. */
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="en" className={`${archivoBlack.variable} ${inter.variable} antialiased`}>

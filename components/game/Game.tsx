@@ -20,6 +20,7 @@ export type ImageView = {
   tuning?: Tuning
 }
 
+/** The game screen: the image, stage track, points, time bonus, and the guess bar. */
 export default function Game({
   number,
   view,
@@ -49,6 +50,7 @@ export default function Game({
   onGuess: (guess: string) => void
   onReveal: () => void
   stats: ReactNode
+  /** Development-only distortion test panel. */
   testPanel?: ReactNode
 }) {
   return (

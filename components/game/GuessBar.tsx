@@ -4,6 +4,10 @@ import { type FormEvent, useState } from "react"
 import { button } from "@/components/ui"
 import { copy, settings } from "@/lib/content"
 
+/**
+ * Guess field and Reveal button. One guess per stage: an empty or whitespace
+ * guess does nothing, and a wrong one locks Guess until Reveal.
+ */
 export default function GuessBar({
   locked,
   busy,
@@ -16,6 +20,7 @@ export default function GuessBar({
   locked: boolean
   /** A transition is playing. */
   busy: boolean
+  /** On stage 5 Reveal ends the round, so its label changes. */
   lastStage: boolean
   /** Changes on every wrong guess, to replay the shake. */
   wrongCount: number
