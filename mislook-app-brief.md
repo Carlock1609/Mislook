@@ -330,7 +330,7 @@ Always visible on every state (how to play, game, result): **total visits** and 
 - **Privacy:** no IP addresses, no personal data, no cookies, and no third-party trackers are stored. The anonymous id is not linked to anything.
 - **Development:** visits from `localhost` and `?day` previews are not counted.
 - **Display:** numbers are formatted with thousands separators. The line shows a dash while loading and is hidden if the request fails. Stats never block or slow the game.
-- **Bots:** no bot filtering in v1, so counts are approximate.
+- **Bots and abuse:** same-origin and user-agent checks, Vercel BotID, per-IP and daily limits, and CDN-cached reads (see `documents/security.md`). Counts are still approximate.
 
 Optional later: "played today" and "% who saw it" from the same store.
 

@@ -65,22 +65,32 @@ export function loadStats(): Promise<Stats | null> {
 
 async function request(): Promise<Stats | null> {
   const count = !isPreview() && read(() => sessionStorage, COUNTED_KEY) !== "1"
+  if (count) {
+    const counted = await fetchTotals({
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ visitorId: visitorId() }),
+    })
+    // Any answer (counted or turned away) settles it for this tab, so it never retries.
+    if (counted !== undefined) write(() => sessionStorage, COUNTED_KEY, "1")
+    if (counted) return counted
+  }
+  // Not counting, or the visit wasn't counted: read the (CDN-cached) totals.
+  return (await fetchTotals()) ?? null
+}
+
+/**
+ * Calls the stats route.
+ * @returns The totals; null when the server answered without totals (a visit
+ * not counted); undefined when the request failed.
+ */
+async function fetchTotals(init?: RequestInit): Promise<Stats | null | undefined> {
   try {
-    const response = await fetch(
-      "/api/stats",
-      count
-        ? {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ visitorId: visitorId() }),
-          }
-        : { cache: "no-store" },
-    )
-    if (!response.ok) return null
-    if (count) write(() => sessionStorage, COUNTED_KEY, "1")
-    const data = (await response.json()) as Stats
-    return typeof data.visits === "number" && typeof data.visitors === "number" ? data : null
+    const response = await fetch("/api/stats", init)
+    if (!response.ok) return undefined
+    const data = (await response.json()) as Partial<Stats>
+    return typeof data.visits === "number" && typeof data.visitors === "number" ? (data as Stats) : null
   } catch {
-    return null
+    return undefined
   }
 }

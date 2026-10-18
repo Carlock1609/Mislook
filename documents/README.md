@@ -11,6 +11,7 @@ The product brief, `mislook-app-brief.md` at the repo root, is the source of tru
 | [distortion-styles.md](distortion-styles.md) | Every distortion style, its settings keys and stage values, and how to add a new one |
 | [test-panel.md](test-panel.md) | The development-only TEST panel and the tuning workflow |
 | [site-stats.md](site-stats.md) | The visits and visitors counter: API route, Redis, privacy, setup |
+| [security.md](security.md) | Threats, defences, bot protection, cost safety |
 
 ## Build status
 

@@ -25,11 +25,14 @@ components/
   dev/TestPanel.tsx       development-only distortion tuning panel
   fx/                     Background (op-art), Wordmark
   SiteStats.tsx, TopBar.tsx, ui.ts
+instrumentation-client.ts starts Vercel BotID in the browser
+next.config.ts            security headers (CSP etc.), BotID rewrites
 lib/
   content.ts              typed access to content/*.json
   daily.ts                Pacific-time day maths (pure)
   stats.ts                client side of the visit counter
   redis.ts                server-only Upstash REST client
+  stats-guard.ts          cheap abuse checks for the stats route
   gl/                     everything that draws the puzzle image (see rendering.md)
 content/
   copy.json               every user-facing string

@@ -9,6 +9,8 @@ app's only storage.
 | --- | --- |
 | `app/api/stats/route.ts` | `GET` returns totals; `POST { visitorId }` records a visit and returns totals |
 | `lib/redis.ts` | Server-only Upstash REST client (`pipeline`) using plain `fetch` |
+| `lib/stats-guard.ts` | Same-origin, bot user-agent, IP hashing and burst-limit checks |
+| `instrumentation-client.ts` | Starts Vercel BotID for `POST /api/stats` |
 | `lib/stats.ts` | Client: decides whether this page view counts, calls the route once per page load |
 | `components/SiteStats.tsx` | Renders the line: dash while loading, nothing if the request failed |
 
@@ -21,7 +23,14 @@ app's only storage.
   added to a HyperLogLog with `PFADD mislook:visitors`; the count is `PFCOUNT`.
   Clearing storage or switching devices counts as a new visitor.
 - **Not counted:** `localhost`, `127.0.0.1`, `[::1]` and any `?day` preview. These only `GET`.
-- **No bot filtering**, so counts are approximate.
+- **Abuse protection:** see [security.md](security.md). In short, a POST only
+  counts if it comes from this site's page, from a real browser (user agent and
+  BotID), and within the per-IP and daily limits. Otherwise the server replies
+  `{ "counted": false }` and the browser shows the cached totals.
+- **Environments:** only production writes the real counters (`mislook:*`).
+  Development writes `mislook:dev:*`; preview deployments never write. Every
+  environment reads the real totals.
+- Counts are still approximate: a determined bot can add a few visits within the caps.
 
 ## Privacy
 
@@ -32,15 +41,15 @@ before it reaches Redis.
 ## Failure behaviour
 
 Stats never block the game. If Redis isn't configured or a request fails, the route
-answers `503` and the line hides itself. Without credentials (for example in local
+answers `503` and the line hides itself. Totals (`GET`) are cached by Vercel's CDN
+for 60 seconds, so the line can lag real visits by up to a minute. Without credentials (for example in local
 development), the line is hidden and the browser console shows the 503.
 
-## Setup
+## Setup (done)
 
-1. In the Vercel dashboard, add **Upstash Redis** (free tier) from the Marketplace and
-   connect it to the project. That sets the environment variables.
-2. Either pair works:
-   - `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN`
-   - `KV_REST_API_URL` and `KV_REST_API_TOKEN`
-3. To see real numbers locally, put the same pair in `.env.local` (git-ignored).
-   Local page views still only read; they never add visits.
+1. Upstash Redis (Free plan, region `iad1`, eviction off) was added from the Vercel
+   Marketplace and connected to the project for all environments with the prefix
+   `KV`, which creates `KV_REST_API_URL` and `KV_REST_API_TOKEN` (the code also
+   accepts `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN`).
+2. Locally: `vercel link`, then `vercel env pull .env.local` (git-ignored), then
+   restart the dev server.

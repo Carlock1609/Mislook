@@ -24,6 +24,15 @@ function credentials() {
 }
 
 /**
+ * A server-only secret for hashing (rate-limit keys). Uses `STATS_SECRET` when
+ * set, otherwise the Redis token, which is already secret and server-only.
+ * @throws RedisError when neither is configured.
+ */
+export function serverSecret() {
+  return process.env.STATS_SECRET ?? credentials().token
+}
+
+/**
  * Runs several commands in one round trip (Upstash's `/pipeline` endpoint).
  * @returns Each command's result, in order.
  * @throws RedisError when not configured, on a network/HTTP failure, or if any command errors.
