@@ -16,9 +16,10 @@ free Upstash quota, and the usual web risks (script injection, clickjacking).
 | Unneeded browser powers | `Permissions-Policy` turns off camera, microphone, location, payment, USB, topics | `next.config.ts` |
 | Framework fingerprinting | No `X-Powered-By` header | `next.config.ts` |
 | Bots inflating visits | Same-origin check, bot user-agent filter, Vercel BotID invisible challenge | `lib/stats-guard.ts`, `instrumentation-client.ts`, `app/api/stats/route.ts` |
-| Flooding the stats route | Per-instance burst limit (10/min/IP, no Redis cost), Redis limit (20 counted visits/hour/IP), daily cap (3,000 counted visits) | `app/api/stats/route.ts` |
-| Burning the Redis quota with reads | GET cached by Vercel's CDN (`s-maxage=60`), so Redis is read about once a minute per region | `app/api/stats/route.ts` |
-| Junk input | Body ≤ 512 bytes; visitor id must match `^[a-zA-Z0-9-]{8,64}$` | `app/api/stats/route.ts` |
+| Flooding the stats route | Per-instance burst limit (10 POSTs/min/IP, no Redis cost), Redis limit (20 counted visits/hour/IP), daily cap (3,000 counted visits; only requests within their IP's limit count towards it, so one IP can't use it up) | `app/api/stats/route.ts` |
+| Burning the Redis quota with reads | GET cached by Vercel's CDN (`s-maxage=60`); query strings refused (they would skip the cache); 30 GETs/min/IP per instance on cache misses | `app/api/stats/route.ts` |
+| Junk input | Declared and actual body ≤ 512 bytes; body must be JSON; visitor id must match `^[a-zA-Z0-9-]{8,64}$` | `app/api/stats/route.ts` |
+| Slow or failing dependencies | Redis calls time out after 3 s; a BotID failure means "not counted" (fail closed) | `lib/redis.ts`, `app/api/stats/route.ts` |
 | Test or preview traffic in real counts | Only production writes the real keys; development writes `mislook:dev:*`; previews never write | `app/api/stats/route.ts` |
 | Leaked Redis token | Token only on the server (never sent to the browser), git-ignored `.env.local` | `lib/redis.ts`, `.gitignore` |
 | Personal data | No IPs, cookies or personal data stored. Rate-limit keys use an HMAC of the IP that expires within the hour | `lib/stats-guard.ts` |
@@ -57,6 +58,11 @@ bypassed automatically.
 - **Deployment Protection**: keeps preview deployments private.
 - **`STATS_SECRET`**: set a long random value to use as the hashing key instead
   of the Redis token (optional).
+- **Least privilege for non-production:** the Redis write token is currently in
+  Production, Preview and Development. Previews never write, so you could scope
+  the variables to Production and Development only.
+- **HSTS on a custom domain:** the header includes subdomains. Before adding a
+  custom domain, make sure every subdomain serves HTTPS.
 
 ## What isn't protected (by design)
 
@@ -65,6 +71,12 @@ bypassed automatically.
   from the code. Hiding answers would need a server-side guess check.
 - **Counts are approximate.** A clever bot that passes BotID, rotates IPs and
   stays under the caps can still add a few visits. The daily cap bounds the damage.
+- **The daily cap can be used up.** A large botnet passing BotID could reach
+  3,000 counted visits early in the day; real visits after that aren't counted
+  until the next day (UTC). The game is unaffected.
+- **Inline scripts are allowed by the CSP.** Needed while the page is static
+  (nonces require per-request rendering). The app renders no user-supplied
+  content, so there's no obvious injection path for them to matter.
 
 ## Upkeep
 

@@ -13,6 +13,9 @@
 /** One Redis command as its words, e.g. `["INCR", "mislook:visits"]`. */
 export type RedisCommand = (string | number)[]
 
+/** How long to wait for Redis before giving up. */
+const REQUEST_TIMEOUT_MS = 3000
+
 /** Thrown when Redis isn't configured or a request fails. */
 export class RedisError extends Error {}
 
@@ -44,6 +47,10 @@ export async function pipeline(commands: RedisCommand[]): Promise<unknown[]> {
     headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
     body: JSON.stringify(commands),
     cache: "no-store",
+    // Don't let a slow Redis keep the function (and its billed time) waiting.
+    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+  }).catch((error: unknown) => {
+    throw new RedisError(error instanceof Error ? error.message : "Redis request failed")
   })
   if (!response.ok) throw new RedisError(`Redis request failed: ${response.status}`)
   const results = (await response.json()) as { result?: unknown; error?: string }[]
