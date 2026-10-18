@@ -8,10 +8,22 @@ import StageTrack from "@/components/game/StageTrack"
 import TopBar from "@/components/TopBar"
 import { label, panel } from "@/components/ui"
 import { copy, STAGES } from "@/lib/content"
+import type { AnyStyleId, StageView, Tuning } from "@/lib/gl/scene"
 
+/** What the image shows. Normally the round's own image and stage; the dev test panel can override it. */
+export type ImageView = {
+  src: string
+  style: AnyStyleId
+  stage: StageView
+  seed: string
+  focus?: [number, number]
+  tuning?: Tuning
+}
+
+/** The game screen: the image, stage track, points, time bonus, and the guess bar. */
 export default function Game({
   number,
-  imageSrc,
+  view,
   stage,
   points,
   bonus,
@@ -23,9 +35,10 @@ export default function Game({
   onGuess,
   onReveal,
   stats,
+  testPanel,
 }: {
   number: number
-  imageSrc: string
+  view: ImageView
   stage: number
   points: number
   bonus: number
@@ -37,16 +50,19 @@ export default function Game({
   onGuess: (guess: string) => void
   onReveal: () => void
   stats: ReactNode
+  /** Development-only distortion test panel. */
+  testPanel?: ReactNode
 }) {
   return (
     <section className="mx-auto my-3 w-[calc(100%-24px)] md:my-4 md:w-[min(1180px,calc(100%-32px))]">
+      {testPanel}
       <TopBar meta={`#${number}`} stats={stats} />
 
       <div className="pt-3 pb-60 md:grid md:min-h-[calc(100dvh-90px)] md:grid-cols-[minmax(0,1.4fr)_minmax(340px,0.8fr)] md:items-center md:gap-4 md:py-4">
         <div className="w-full md:w-[min(100%,560px)] md:justify-self-center">
           <MislookImage
-            src={imageSrc}
-            stage={stage}
+            {...view}
+            label={`Today's image, stage ${stage} of ${STAGES}`}
             revealing={busy}
             status={imageStatus}
             onStatus={onImageStatus}

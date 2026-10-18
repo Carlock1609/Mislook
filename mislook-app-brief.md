@@ -132,7 +132,7 @@ Each style has one *intensity* knob that goes from hardest (stage 1) to easiest 
 | Hidden tiles | **Keep (v1)** | |
 | Two-tone | **Keep (v1)** | |
 | Ripple | **Keep (v1)** | |
-| Darkness / spotlight | Maybe | Retest in the app with harder settings |
+| Darkness / spotlight | Dropped | Retested in the app and removed |
 | Kaleidoscope | Retest | The POC version was likely weak; rebuild it properly (WebGL) and judge again |
 | Slice / echo, stripe overlay, halftone, edges only, swirl | Dropped | |
 | Pixelate, blur | Dropped | Soft and familiar; don't fit the look |
@@ -153,6 +153,8 @@ These go in the test panel and only join the rotation if they feel good.
 | Fisheye | Extreme lens bulge, centred away from the subject | Bulge flattens |
 | Tunnel | Image repeating into itself, Inception-style | Repeats unwind |
 | Negative | Tones inverted | Probably too easy alone; better as an extra on stages 1–2 |
+
+Further experiments from an outside list (RGB split, slice glitch, liquid warp, halftone, ordered dither, ASCII, scanlines, edges only, motion blur, mosaic) are also in the test panel; see `documents/distortion-styles.md`.
 
 #### How styles map to stages
 
@@ -175,11 +177,9 @@ These are harder than the POC.
 | 5 | 20% / 0% | 70% | 6 | 0.015 / 6 |
 | Result | Clear, in colour | Clear, in colour | Clear, in colour | Clear, in colour |
 
-**Darkness, if it comes back:** spotlight radius as a share of the short side of 0.08, 0.14, 0.22, 0.35, 0.50.
-
 **Rules per style:**
 
-- **Style ids:** `tile-shuffle`, `hidden-tiles`, `two-tone` and `ripple`. `darkness`, `kaleidoscope` and the new candidates exist in the test panel only.
+- **Style ids:** `tile-shuffle`, `hidden-tiles`, `two-tone` and `ripple`. `kaleidoscope`, the new candidates and the further experiments exist in the test panel only.
 - **Tile shuffle:** one grid for every stage (`tileGrid`, starting at 8 × 8).
   - Tiles out of place = round(fraction × columns × rows).
   - On stages 1–2, some of those tiles are also rotated.
@@ -192,7 +192,6 @@ These are harder than the POC.
 - **Ripple:** sine-wave displacement in both directions.
   - The settled stage is still; the waves move only during transitions.
   - The wave phase comes from the date seed.
-- **Darkness:** the spot is centred on the image's optional `focus` point (`[x, y]` as fractions; default the centre), with a short, crisp edge on pure black.
 
 **Tuning:** the test panel also gets an intensity slider for the current style and stage. Numbers get tuned by playing, then copied into `settings.json`. In family playtests, note which stage each person solves at. If most solve at stage 1–2, raise the difficulty.
 
@@ -284,7 +283,7 @@ Everything you'd want to change without touching components lives in `content/`.
 
 `content/settings.json`: `DAY_0`, `tileGrid`, every style's stage values, and the scoring numbers.
 
-A `darkness` image may also set `"focus": [0.5, 0.4]` to aim the spotlight at the subject.
+An image may also set `"focus": [0.5, 0.4]` to mark where the subject is; test-panel styles such as fisheye use it to aim away from the subject.
 
 v1 ships with **10 dummy images** and dummy answers. They will be replaced with the real list.
 
@@ -331,7 +330,7 @@ Always visible on every state (how to play, game, result): **total visits** and 
 - **Privacy:** no IP addresses, no personal data, no cookies, and no third-party trackers are stored. The anonymous id is not linked to anything.
 - **Development:** visits from `localhost` and `?day` previews are not counted.
 - **Display:** numbers are formatted with thousands separators. The line shows a dash while loading and is hidden if the request fails. Stats never block or slow the game.
-- **Bots:** no bot filtering in v1, so counts are approximate.
+- **Bots and abuse:** same-origin and user-agent checks, Vercel BotID, per-IP and daily limits, and CDN-cached reads (see `documents/security.md`). Counts are still approximate.
 
 Optional later: "played today" and "% who saw it" from the same store.
 

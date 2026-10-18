@@ -3,6 +3,7 @@ import Wordmark from "@/components/fx/Wordmark"
 import { button, label, metaRow, panel } from "@/components/ui"
 import { copy } from "@/lib/content"
 
+/** First screen: rules, Play, and the Coming soon state before `DAY_0`. */
 export default function HowToPlay({
   number,
   comingSoon,
@@ -13,9 +14,12 @@ export default function HowToPlay({
 }: {
   /** Today's puzzle number, or null while it is still being worked out. */
   number: number | null
+  /** Before `DAY_0`: no puzzle yet, Play disabled. */
   comingSoon: boolean
+  /** Today's puzzle is known, so Play can start. */
   ready: boolean
   onPlay: () => void
+  /** Hidden element that warms the image cache before Play. */
   preload: ReactNode
   stats: ReactNode
 }) {

@@ -1,5 +1,6 @@
 import { STAGES } from "@/lib/content"
 
+/** Five numbered dots: past stages filled, the current one ringed in accent. */
 export default function StageTrack({ stage }: { stage: number }) {
   return (
     <div className="mt-3 flex gap-2" aria-label={`Stage ${stage} of ${STAGES}`}>

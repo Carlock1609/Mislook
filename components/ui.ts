@@ -1,10 +1,13 @@
-// Shared Tailwind class sets for the few repeated UI pieces.
+/** @file Shared Tailwind class sets for the few repeated UI pieces. */
 
+/** Bordered surface box. */
 export const panel = "border border-line bg-surface"
 
+/** Small uppercase row with items pushed to either end. */
 export const metaRow =
   "flex items-center justify-between text-label font-semibold uppercase tracking-[0.14em] text-muted"
 
+/** Accent-coloured section label. */
 export const label = "text-tiny font-bold uppercase tracking-[0.18em] text-accent"
 
 const buttonBase =
@@ -13,6 +16,12 @@ const buttonBase =
   "enabled:hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-accent " +
   "disabled:cursor-not-allowed disabled:border-line disabled:bg-raised disabled:text-faint"
 
+/**
+ * Class names for a button.
+ * @param variant - Filled accent (primary) or outlined (secondary).
+ * @param wide - Full width with the label and icon at either end.
+ * @param prompted - Secondary drawn in accent, to nudge the player (e.g. Reveal after a wrong guess).
+ */
 export function button({
   variant,
   wide = false,

@@ -2,6 +2,7 @@ import type { ReactNode } from "react"
 import Wordmark from "@/components/fx/Wordmark"
 import { metaRow, panel } from "@/components/ui"
 
+/** Compact header for the game and result: wordmark on the left, puzzle number and site stats on the right. */
 export default function TopBar({ meta, stats }: { meta: ReactNode; stats: ReactNode }) {
   return (
     <header className={`${panel} ${metaRow} min-h-[50px] px-4 md:min-h-[58px] md:px-5`}>

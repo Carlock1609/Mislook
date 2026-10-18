@@ -1,11 +1,14 @@
 "use client"
 
 import { type ReactNode, useEffect, useState } from "react"
+import type { ImageView } from "@/components/game/Game"
+import MislookImage, { type ImageStatus } from "@/components/game/MislookImage"
 import TopBar from "@/components/TopBar"
 import { button, panel } from "@/components/ui"
 import { copy, fill, STAGES, settings } from "@/lib/content"
 import { formatHms, formatMss, nextZonedMidnight } from "@/lib/daily"
 
+/** How a round ended. `stage` is the stage the player won on, or reached on a miss. */
 export type RoundResult = {
   won: boolean
   stage: number
@@ -14,6 +17,7 @@ export type RoundResult = {
   wrongGuesses: number
 }
 
+/** Hours, minutes and seconds until the next Pacific midnight, ticking every second. */
 function NextImageCountdown() {
   const [now, setNow] = useState<number | null>(null)
 
@@ -31,22 +35,33 @@ function NextImageCountdown() {
   )
 }
 
+/** Result screen: the image resolves to clear, then the score, answer, share button and countdown. */
 export default function Result({
   number,
-  imageSrc,
+  view,
   answer,
   result,
   onCopy,
   stats,
 }: {
   number: number
-  imageSrc: string
+  /** The image as the round ended; the result resolves it to the clear image. */
+  view: ImageView
   answer: string
   result: RoundResult
   onCopy: () => Promise<boolean>
   stats: ReactNode
 }) {
   const [copied, setCopied] = useState(false)
+  const [imageStatus, setImageStatus] = useState<ImageStatus>("loading")
+  const [revealed, setRevealed] = useState(false)
+  // Show the last stage first, then play the final reveal into the clear image.
+  useEffect(() => {
+    if (imageStatus !== "ready") return
+    const id = window.setTimeout(() => setRevealed(true), 150)
+    return () => window.clearTimeout(id)
+  }, [imageStatus])
+  const stage = revealed ? 0 : view.stage
 
   useEffect(() => {
     if (!copied) return
@@ -66,10 +81,9 @@ export default function Result({
       <TopBar meta={`#${number}`} stats={stats} />
 
       <div className="pt-3 pb-6 md:grid md:min-h-[calc(100dvh-90px)] md:grid-cols-[minmax(0,1fr)_minmax(360px,0.72fr)] md:items-center md:gap-4 md:py-4">
-        <div className="relative aspect-square w-full overflow-hidden border border-line md:w-[min(100%,560px)] md:justify-self-center">
-          {/* eslint-disable-next-line @next/next/no-img-element -- same source as the WebGL canvas */}
-          <img src={imageSrc} alt={answer} className="absolute inset-0 size-full animate-final-reveal object-cover" />
-          <span className="absolute right-3 bottom-3 bg-ink px-3 py-2 text-tiny font-bold uppercase tracking-[0.12em] text-bg">
+        <div className="relative w-full md:w-[min(100%,560px)] md:justify-self-center">
+          <MislookImage {...view} stage={stage} label={answer} status={imageStatus} onStatus={setImageStatus} />
+          <span className="absolute right-3 bottom-3 z-20 bg-ink px-3 py-2 text-tiny font-bold uppercase tracking-[0.12em] text-bg">
             {answer}
           </span>
         </div>
