@@ -1,0 +1,62 @@
+[
+  {
+    "file": "e3a8b9.webp",
+    "style": "tile-shuffle",
+    "title": "Castle",
+    "accept": ["castle", "hogwarts", "hogwarts castle"]
+  },
+  {
+    "file": "e6fced.webp",
+    "style": "hidden-tiles",
+    "title": "Skyscraper",
+    "accept": ["skyscraper", "empire state building", "empire state"]
+  },
+  {
+    "file": "902d31.webp",
+    "style": "two-tone",
+    "title": "Thanos",
+    "accept": ["thanos"]
+  },
+  {
+    "file": "465ffa.webp",
+    "style": "ripple",
+    "title": "Beach",
+    "accept": ["beach", "sunset beach", "beach at sunset"]
+  },
+  {
+    "file": "c7bf17.webp",
+    "style": "tile-shuffle",
+    "title": "Wolf",
+    "accept": ["wolf", "direwolf", "dire wolf"]
+  },
+  {
+    "file": "be7bda.webp",
+    "style": "hidden-tiles",
+    "title": "Staircase",
+    "accept": ["staircase", "stairs", "steps"]
+  },
+  {
+    "file": "6ba992.webp",
+    "style": "two-tone",
+    "title": "Skyline",
+    "accept": ["skyline", "city skyline", "city"]
+  },
+  {
+    "file": "39abd0.webp",
+    "style": "ripple",
+    "title": "Street",
+    "accept": ["street", "city street", "painting"]
+  },
+  {
+    "file": "9dd890.webp",
+    "style": "tile-shuffle",
+    "title": "Spiral",
+    "accept": ["spiral", "vortex", "tunnel"]
+  },
+  {
+    "file": "8561b4.webp",
+    "style": "hidden-tiles",
+    "title": "Neon city",
+    "accept": ["neon city", "neon street", "city", "times square"]
+  }
+]

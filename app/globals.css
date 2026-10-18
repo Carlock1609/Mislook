@@ -1,0 +1,249 @@
+@import "tailwindcss";
+
+/* Design tokens, ported from the Figma POC. Motion timings follow the app brief. */
+@theme {
+  --color-bg: #080808;
+  --color-surface: #111111;
+  --color-raised: #181818;
+  --color-ink: #f0efe9;
+  --color-muted: #93938d;
+  --color-faint: #65655f;
+  --color-line: #3b3b38;
+  --color-accent: #d9f35b;
+  --color-miss: #d46a61;
+  --color-fringe-red: #ea3857;
+  --color-fringe-green: #54ed9c;
+  --color-fringe-blue: #35a8ff;
+
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-archivo-black), ui-sans-serif, sans-serif;
+
+  /* Type scale: micro, tiny, label, body, lead, then display sizes set per use. */
+  --text-micro: 9px;
+  --text-tiny: 10px;
+  --text-label: 11px;
+  --text-body: 12px;
+  --text-lead: 18px;
+
+  --radius-ui: 2px;
+
+  --ease-out-expo: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-fold: cubic-bezier(0.76, 0, 0.24, 1);
+
+  --animate-shake: shake var(--motion-fast) ease;
+  --animate-toast-in: toast-in 280ms ease;
+  --animate-final-reveal: final-reveal var(--motion-reveal) var(--ease-out-expo);
+}
+
+:root {
+  /* fast = wrong guess, medium = landing, reveal = stage and final reveal */
+  --motion-hover: 180ms;
+  --motion-fast: 360ms;
+  --motion-medium: 1000ms;
+  --motion-reveal: 1000ms;
+  --motion-background: 28s;
+  color-scheme: dark;
+}
+
+html,
+body {
+  background: var(--color-bg);
+  color: var(--color-ink);
+}
+
+body {
+  min-width: 320px;
+  font-family: var(--font-sans);
+  font-synthesis: none;
+}
+
+/* Placeholder op-art background (CSS). Replaced by the WebGL shader in build step 7. */
+.op-art {
+  position: fixed;
+  inset: -35vmax;
+  z-index: -2;
+  opacity: 0.72;
+  background:
+    repeating-radial-gradient(ellipse at 50% 48%, transparent 0 15px, rgb(240 239 233 / 0.17) 16px 18px, transparent 19px 31px),
+    conic-gradient(from 18deg at 50% 50%, transparent 0 7deg, rgb(240 239 233 / 0.12) 8deg 9deg, transparent 10deg 22deg);
+  animation: drift var(--motion-background) linear infinite;
+  transition: opacity var(--motion-reveal) ease;
+  pointer-events: none;
+}
+
+.op-art[data-dim="true"] {
+  opacity: 0.16;
+}
+
+.op-art::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at center, transparent 0 8%, var(--color-bg) 54%);
+}
+
+.op-art__orbit {
+  position: absolute;
+  width: 22vmax;
+  aspect-ratio: 1;
+  border: 1px solid rgb(240 239 233 / 0.35);
+  border-radius: 50%;
+}
+
+.op-art__orbit::before,
+.op-art__orbit::after {
+  content: "";
+  position: absolute;
+  inset: 14%;
+  border: 1px solid rgb(240 239 233 / 0.28);
+  border-radius: inherit;
+}
+
+.op-art__orbit::after {
+  inset: 29%;
+}
+
+.wordmark__echo {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  color: var(--color-fringe-blue);
+  clip-path: inset(43% 0 36% 0);
+  transform: translate(3px, 1px);
+  opacity: 0.75;
+  animation: wordmark-jitter 4.5s steps(1) infinite;
+}
+
+/* Play transition: a radiating spiral tunnels in over the page. */
+.play-tunnel {
+  position: fixed;
+  inset: -25%;
+  z-index: 50;
+  background: repeating-conic-gradient(
+    from 0deg at 50% 50%,
+    var(--color-bg) 0 9deg,
+    var(--color-ink) 10deg 11deg,
+    var(--color-bg) 12deg 22deg
+  );
+  animation: tunnel var(--motion-medium) var(--ease-fold) both;
+  pointer-events: none;
+}
+
+.bonus-ring {
+  background: conic-gradient(
+    var(--ring-color) 0 var(--bonus-progress),
+    var(--color-line) var(--bonus-progress) 100%
+  );
+}
+
+@keyframes drift {
+  to {
+    transform: rotate(360deg) scale(1.04);
+  }
+}
+
+@keyframes wordmark-jitter {
+  0%,
+  92%,
+  100% {
+    transform: translate(3px, 1px);
+    color: var(--color-fringe-blue);
+  }
+  94% {
+    transform: translate(-3px, 0);
+    color: var(--color-fringe-red);
+  }
+  96% {
+    transform: translate(2px, -1px);
+    color: var(--color-fringe-green);
+  }
+}
+
+@keyframes tunnel {
+  0% {
+    opacity: 0;
+    transform: scale(1.8) rotate(0);
+  }
+  42% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: scale(0.05) rotate(24deg);
+  }
+}
+
+@keyframes final-reveal {
+  0% {
+    opacity: 0;
+    transform: scale(1.14) skewX(5deg);
+    filter: grayscale(1) contrast(3);
+  }
+  58% {
+    opacity: 1;
+    transform: scale(1.02) skewX(-1deg);
+  }
+  100% {
+    transform: scale(1);
+    filter: none;
+  }
+}
+
+@keyframes shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  20% {
+    transform: translateX(-7px);
+  }
+  40% {
+    transform: translateX(6px);
+  }
+  60% {
+    transform: translateX(-4px);
+  }
+  80% {
+    transform: translateX(2px);
+  }
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+}
+
+@keyframes crossfade {
+  from {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .op-art,
+  .wordmark__echo {
+    animation: none;
+  }
+
+  .play-tunnel {
+    background: var(--color-bg);
+    animation-name: crossfade;
+    animation-direction: alternate;
+  }
+
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+  }
+
+  .animate-final-reveal {
+    animation-name: crossfade;
+  }
+
+  .animate-shake {
+    animation: none;
+  }
+}
