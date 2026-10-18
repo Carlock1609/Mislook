@@ -2,7 +2,7 @@
 // transition glitch (slices + RGB split) and handles greyscale vs colour.
 
 import { createAnimator, type Renderer, type ShowOptions, TRANSITION_MS } from "@/lib/gl/renderer"
-import { easeInOut, type Scene } from "@/lib/gl/scene"
+import { easeInOut, MAX_HOLES, MAX_RINGS, NOISE_SIZE, type Scene, staticNoise } from "@/lib/gl/scene"
 
 const VERTEX = `
 attribute vec2 a_pos;
@@ -26,7 +26,8 @@ uniform sampler2D u_image;
 uniform float u_solid;
 varying vec2 v_uv;
 void main() {
-  gl_FragColor = u_solid > 0.5 ? vec4(0.0, 0.0, 0.0, 1.0) : vec4(texture2D(u_image, v_uv).rgb, 1.0);
+  bool off = any(lessThan(v_uv, vec2(0.0))) || any(greaterThan(v_uv, vec2(1.0)));
+  gl_FragColor = u_solid > 0.5 || off ? vec4(0.0, 0.0, 0.0, 1.0) : vec4(texture2D(u_image, v_uv).rgb, 1.0);
 }`
 
 // Keep the maths in step with posterize / rippleOffset / mirror in scene.ts.
@@ -71,6 +72,96 @@ void main() {
   gl_FragColor = vec4(c, 1.0);
 }`
 
+// Test-panel candidate styles, in their own program so the v1 shader stays small.
+// Keep the maths in step with the *Source / drip / negate functions in scene.ts.
+const CANDIDATE_FRAGMENT = `${PRECISION}
+uniform sampler2D u_image;
+uniform sampler2D u_noise;
+uniform float u_mode;
+uniform float u_angles[${MAX_RINGS}];
+uniform float u_ringCount;
+uniform vec4 u_phases;
+uniform float u_amount;
+uniform vec2 u_center;
+uniform float u_strength;
+uniform float u_twist;
+uniform float u_segments;
+uniform vec2 u_spin;
+uniform vec3 u_holes[${MAX_HOLES}];
+uniform vec2 u_tone;
+uniform float u_px;
+varying vec2 v_uv;
+
+const float TAU = 6.2831853;
+float luma(vec3 c) { return dot(c, vec3(0.2126, 0.7152, 0.0722)); }
+float mirror(float t) { return 1.0 - abs(1.0 - mod(t, 2.0)); }
+bool inside(vec2 p) { return p.x >= 0.0 && p.x <= 1.0 && p.y >= 0.0 && p.y <= 1.0; }
+vec2 turn(vec2 q, float a) { float c = cos(a); float s = sin(a); return vec2(q.x * c - q.y * s, q.x * s + q.y * c); }
+float drip(float u) {
+  float t = TAU * u;
+  float spikes = pow(0.5 + 0.5 * sin(29.0 * t + u_phases.w), 8.0);
+  return clamp(0.3 + 0.22 * sin(3.0 * t + u_phases.x) + 0.16 * sin(7.0 * t + u_phases.y)
+    + 0.12 * sin(17.0 * t + u_phases.z) + 0.5 * spikes, 0.0, 1.0);
+}
+
+void main() {
+  vec2 uv = v_uv;
+  float keep = 1.0;
+  if (u_mode < 1.5) {
+    // Ring lock
+    vec2 q = uv - 0.5;
+    float ring = min(u_ringCount - 1.0, floor(length(q) / (0.70710678 / u_ringCount)));
+    float a = 0.0;
+    for (int i = 0; i < ${MAX_RINGS}; i++) if (float(i) == ring) a = u_angles[i];
+    uv = 0.5 + turn(q, a);
+    if (!inside(uv)) keep = 0.0;
+  } else if (u_mode < 2.5) {
+    // Melt
+    uv.y = max(0.0, uv.y - u_amount * drip(uv.x));
+  } else if (u_mode > 3.5 && u_mode < 4.5) {
+    // Fisheye
+    vec2 q = uv - u_center;
+    float r = length(q) / 0.8;
+    if (r < 1.0 && r > 0.0) uv = u_center + q * pow(r, u_strength);
+  } else if (u_mode > 4.5 && u_mode < 5.5) {
+    // Tunnel
+    if (u_strength >= 0.02) {
+      for (int i = 0; i < 16; i++) {
+        vec2 n = u_center + turn(uv - u_center, -u_twist) / u_strength;
+        if (!inside(n)) break;
+        uv = n;
+      }
+    }
+  } else if (u_mode > 6.5 && u_mode < 7.5) {
+    // Kaleidoscope
+    vec2 q = uv - 0.5;
+    float wedge = TAU / u_segments;
+    float a = mod(atan(q.y, q.x) + u_spin.x, wedge);
+    if (a > wedge * 0.5) a = wedge - a;
+    a += u_spin.y;
+    vec2 k = 0.5 + length(q) * vec2(cos(a), sin(a));
+    uv = vec2(mirror(mix(uv.x, k.x, u_amount)), mirror(mix(uv.y, k.y, u_amount)));
+  }
+
+  vec3 c = texture2D(u_image, uv).rgb * keep;
+  if (u_mode > 2.5 && u_mode < 3.5) {
+    // Static: frozen noise, never animated.
+    c = mix(c, vec3(texture2D(u_noise, v_uv).r), u_amount);
+  } else if (u_mode > 5.5 && u_mode < 6.5) {
+    // Negative
+    c = 0.5 + (mix(c, 1.0 - c, u_tone.x) - 0.5) * u_tone.y;
+  } else if (u_mode > 7.5) {
+    // Keyholes
+    float open = 0.0;
+    for (int i = 0; i < ${MAX_HOLES}; i++) {
+      vec3 h = u_holes[i];
+      if (h.z > 0.0) open = max(open, 1.0 - smoothstep(h.z - u_px, h.z + u_px, distance(v_uv, h.xy)));
+    }
+    c *= open;
+  }
+  gl_FragColor = vec4(c, 1.0);
+}`
+
 const POST_FRAGMENT = `${PRECISION}
 uniform sampler2D u_a;
 uniform sampler2D u_b;
@@ -107,6 +198,8 @@ void main() {
   gl_FragColor = vec4(mix(grey, colour, u_colour), 1.0);
 }`
 
+const NOISE_UNIT = 3
+
 type Target = { texture: WebGLTexture; framebuffer: WebGLFramebuffer }
 
 const FULL_QUAD = new Float32Array([0, 0, 0, 0, 1, 0, 1, 0, 0, 1, 0, 1, 0, 1, 0, 1, 1, 0, 1, 0, 1, 1, 1, 1])
@@ -128,6 +221,9 @@ export function createWebGLRenderer(canvas: HTMLCanvasElement): Renderer | null 
   let tileProgram: WebGLProgram | null = null
   let styleProgram: WebGLProgram | null = null
   let postProgram: WebGLProgram | null = null
+  // Compiled on first use, so a device that can't build it still plays the v1 styles.
+  let candidateProgram: WebGLProgram | null = null
+  let noise: { seed: string; texture: WebGLTexture } | null = null
   const uniforms = new Map<WebGLProgram, Map<string, WebGLUniformLocation | null>>()
 
   function compile(type: number, source: string) {
@@ -193,6 +289,8 @@ export function createWebGLRenderer(canvas: HTMLCanvasElement): Renderer | null 
     tileProgram = program(TILE_FRAGMENT)
     styleProgram = program(STYLE_FRAGMENT)
     postProgram = program(POST_FRAGMENT)
+    candidateProgram = null
+    noise = null
     buffer = ctx.createBuffer()
     targets = [makeTarget(), makeTarget()]
     imageTexture = null
@@ -203,6 +301,21 @@ export function createWebGLRenderer(canvas: HTMLCanvasElement): Renderer | null 
     if (imageTexture) ctx.deleteTexture(imageTexture)
     imageTexture = texture()
     ctx.texImage2D(ctx.TEXTURE_2D, 0, ctx.RGBA, ctx.RGBA, ctx.UNSIGNED_BYTE, img)
+  }
+
+  function noiseTexture(seed: string) {
+    if (noise?.seed === seed) return noise.texture
+    if (noise) ctx.deleteTexture(noise.texture)
+    // Its own unit, so creating it doesn't unbind the image on unit 0.
+    ctx.activeTexture(ctx.TEXTURE0 + NOISE_UNIT)
+    const t = texture()
+    ctx.texParameteri(ctx.TEXTURE_2D, ctx.TEXTURE_MIN_FILTER, ctx.NEAREST)
+    ctx.texParameteri(ctx.TEXTURE_2D, ctx.TEXTURE_MAG_FILTER, ctx.NEAREST)
+    ctx.pixelStorei(ctx.UNPACK_ALIGNMENT, 1)
+    const data = staticNoise(seed)
+    ctx.texImage2D(ctx.TEXTURE_2D, 0, ctx.LUMINANCE, NOISE_SIZE, NOISE_SIZE, 0, ctx.LUMINANCE, ctx.UNSIGNED_BYTE, data)
+    noise = { seed, texture: t }
+    return t
   }
 
   function draw(p: WebGLProgram, vertices: Float32Array) {
@@ -275,6 +388,43 @@ export function createWebGLRenderer(canvas: HTMLCanvasElement): Renderer | null 
       return
     }
 
+    if (to.kind === "strips" && from.kind === "strips") {
+      const n = to.slots.length
+      const inset = image ? 0.5 / image.naturalWidth : 0
+      const vertices: number[] = []
+      to.slots.forEach((slot, i) => {
+        const cx = (lerp(from.slots[i], slot, e) + 0.5) / n
+        pushQuad(vertices, cx, 0.5, 0.5 / n, 0.5, 0, [i / n + inset, 0, (i + 1) / n - inset, 1])
+      })
+      bindImage(tileProgram!, "u_image", 0, imageTexture)
+      ctx.uniform1f(uniform(tileProgram!, "u_solid"), 0)
+      draw(tileProgram!, new Float32Array(vertices))
+      return
+    }
+
+    if (to.kind === "shards" && from.kind === "shards") {
+      const vertices: number[] = []
+      to.shards.forEach((shard, i) => {
+        const a = from.shards[i]
+        const rot = lerp(a.rot, shard.rot, e)
+        const dx = lerp(a.dx, shard.dx, e)
+        const dy = lerp(a.dy, shard.dy, e)
+        const cos = Math.cos(rot)
+        const sin = Math.sin(rot)
+        for (let k = 0; k < 6; k += 2) {
+          const x = shard.tri[k] - shard.pivotX
+          const y = shard.tri[k + 1] - shard.pivotY
+          vertices.push(shard.pivotX + x * cos - y * sin + dx, shard.pivotY + x * sin + y * cos + dy, shard.tri[k], shard.tri[k + 1])
+        }
+      })
+      bindImage(tileProgram!, "u_image", 0, imageTexture)
+      ctx.uniform1f(uniform(tileProgram!, "u_solid"), 0)
+      draw(tileProgram!, new Float32Array(vertices))
+      return
+    }
+
+    if (drawCandidate(from, to, e)) return
+
     bindImage(style, "u_image", 0, imageTexture)
     set1("u_mode", 0)
     set1("u_px", 1 / size)
@@ -315,6 +465,61 @@ export function createWebGLRenderer(canvas: HTMLCanvasElement): Renderer | null 
         draw(tileProgram!, new Float32Array(vertices))
       }
     }
+  }
+
+  /** Full-screen candidate styles. Returns false when `to` isn't one. */
+  function drawCandidate(from: Scene, to: Scene, e: number) {
+    const modes: Partial<Record<Scene["kind"], number>> = {
+      rings: 1,
+      melt: 2,
+      static: 3,
+      fisheye: 4,
+      tunnel: 5,
+      negative: 6,
+      kaleidoscope: 7,
+      keyholes: 8,
+    }
+    const mode = modes[to.kind]
+    if (!mode || from.kind !== to.kind) return false
+    candidateProgram ??= program(CANDIDATE_FRAGMENT)
+    const p = candidateProgram
+    const set1 = (name: string, v: number) => ctx.uniform1f(uniform(p, name), v)
+    const set2 = (name: string, a: number, b: number) => ctx.uniform2f(uniform(p, name), a, b)
+    bindImage(p, "u_image", 0, imageTexture)
+    set1("u_mode", mode)
+    set1("u_px", 1 / size)
+
+    if (to.kind === "rings" && from.kind === "rings") {
+      // Each ring turns back towards its next angle, like a combination lock.
+      set1("u_ringCount", to.angles.length)
+      ctx.uniform1fv(uniform(p, "u_angles"), new Float32Array(to.angles.map((a, i) => lerp(from.angles[i], a, e))))
+    } else if (to.kind === "melt" && from.kind === "melt") {
+      ctx.uniform4fv(uniform(p, "u_phases"), new Float32Array(to.phases))
+      set1("u_amount", lerp(from.amount, to.amount, e))
+    } else if (to.kind === "static" && from.kind === "static") {
+      bindImage(p, "u_noise", NOISE_UNIT, noiseTexture(to.seed))
+      set1("u_amount", lerp(from.amount, to.amount, e))
+    } else if (to.kind === "fisheye" && from.kind === "fisheye") {
+      set2("u_center", to.centerX, to.centerY)
+      set1("u_strength", lerp(from.strength, to.strength, e))
+    } else if (to.kind === "tunnel" && from.kind === "tunnel") {
+      set2("u_center", to.centerX, to.centerY)
+      set1("u_strength", lerp(from.scale, to.scale, e))
+      set1("u_twist", lerp(from.twist, to.twist, e))
+    } else if (to.kind === "negative" && from.kind === "negative") {
+      set2("u_tone", lerp(from.invert, to.invert, e), lerp(from.contrast, to.contrast, e))
+    } else if (to.kind === "kaleidoscope" && from.kind === "kaleidoscope") {
+      set1("u_amount", lerp(from.amount, to.amount, e))
+      set1("u_segments", lerp(from.segments, to.segments, e))
+      // The wedges turn during the transition and come back to the seeded angle.
+      set2("u_spin", to.spin + Math.sin(Math.PI * e) * Math.PI * 0.5, to.source)
+    } else if (to.kind === "keyholes" && from.kind === "keyholes") {
+      const holes = new Float32Array(MAX_HOLES * 3)
+      to.holes.forEach((h, i) => holes.set([h.x, h.y, lerp(from.holes[i].r, h.r, e)], i * 3))
+      ctx.uniform3fv(uniform(p, "u_holes"), holes)
+    }
+    draw(p, FULL_QUAD)
+    return true
   }
 
   function render(from: Scene, to: Scene, p: number, options: ShowOptions) {
@@ -399,6 +604,8 @@ export function createWebGLRenderer(canvas: HTMLCanvasElement): Renderer | null 
       freeTargets()
       if (imageTexture) ctx.deleteTexture(imageTexture)
       imageTexture = null
+      if (noise) ctx.deleteTexture(noise.texture)
+      noise = null
     },
   }
 }
