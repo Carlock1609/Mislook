@@ -15,10 +15,10 @@ The product brief, `mislook-app-brief.md` at the repo root, is the source of tru
 
 ## Build status
 
-Written against build steps 1–3 of the brief, plus the site stats from step 6.
-The game rules (`normalize`, `score`, `reduce`, `share`) and their tests are in
-`lib/`, but `components/Mislook.tsx` still uses simple placeholder round logic
-until step 4 wires them in. The daily lock and the real images haven't landed yet.
+Written against build steps 1–5 of the brief, plus the site stats from step 6.
+`components/Mislook.tsx` drives the round with `useReducer(reduceRound)` and
+locks a finished day via `lib/storage.ts`. The link preview card, polish
+(step 7) and real images (step 8) haven't landed yet.
 
 ## Checks
 

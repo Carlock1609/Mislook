@@ -34,6 +34,7 @@ lib/
   score.ts                scoring and time bonus (pure)
   reduce.ts               the round as a state machine for useReducer (pure)
   share.ts                spoiler-free share text (pure)
+  storage.ts              daily lock in localStorage (finished result only)
   *.test.ts               Vitest tests for the pure rules (`npm test`)
   stats.ts                client side of the visit counter
   redis.ts                server-only Upstash REST client
@@ -73,7 +74,7 @@ All in `Mislook.tsx`, passed down as props:
 | State | Purpose |
 | --- | --- |
 | `phase` | Which screen shows |
-| `stage`, `locked`, `wrongGuesses`, `busy`, `result` | Placeholder round logic; step 4 replaces it with `useReducer(reduceRound)` from `lib/reduce.ts` |
+| `round` | `useReducer(reduceRound)` from `lib/reduce.ts`: stage, lock, wrongs, busy, timer, win/miss |
 | `siteStats` | `undefined` loading, `null` failed (line hidden), or the totals |
 | `testView`, `tuning` | Test panel overrides (development only; never change the round) |
 

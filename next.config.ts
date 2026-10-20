@@ -12,6 +12,8 @@ const isDev = process.env.NODE_ENV === "development";
  * Frames are limited to this site ('self' rather than 'none') because BotID
  * serves its challenge from same-origin paths that may be framed.
  */
+// Production-only: force HTTPS. Never send these in development — HSTS /
+// upgrade-insecure-requests on http://localhost makes the browser refuse CSS/JS.
 const csp = `
   default-src 'self';
   script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""};
@@ -23,7 +25,7 @@ const csp = `
   base-uri 'self';
   form-action 'self';
   frame-ancestors 'self';
-  upgrade-insecure-requests;
+  ${isDev ? "" : "upgrade-insecure-requests;"}
 `
   .replace(/\s{2,}/g, " ")
   .trim();
@@ -31,8 +33,6 @@ const csp = `
 /** Security headers sent with every response. */
 const securityHeaders = [
   { key: "Content-Security-Policy", value: csp },
-  // Only HTTPS for two years, including subdomains.
-  { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains" },
   // No other site may frame this one (clickjacking).
   { key: "X-Frame-Options", value: "SAMEORIGIN" },
   // Browsers must trust the declared content type.
@@ -46,6 +46,10 @@ const securityHeaders = [
   },
   // Isolate this window from pages it opens or that open it.
   { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
+  // Only HTTPS for two years, including subdomains — production only.
+  ...(isDev
+    ? []
+    : [{ key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains" }]),
 ];
 
 const nextConfig: NextConfig = {

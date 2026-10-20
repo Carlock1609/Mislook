@@ -39,6 +39,13 @@ function dateStringToUtcDay(date: string) {
   return Date.UTC(year, month - 1, day) / DAY_MS
 }
 
+/** `YYYY-MM-DD` for a dayIndex counted from `day0` (the same calendar maths as `dayIndexFor`). */
+export function dateForDayIndex(dayIndex: number, day0: string) {
+  const ms = (dateStringToUtcDay(day0) + dayIndex) * DAY_MS
+  const d = new Date(ms)
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`
+}
+
 /** Number of zone midnights from `day0` to the instant's date. Negative before `day0`. */
 export function dayIndexFor(instant: number, day0: string, timeZone: string) {
   return dateStringToUtcDay(zonedDateString(instant, timeZone)) - dateStringToUtcDay(day0)

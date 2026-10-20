@@ -11,7 +11,7 @@ free Upstash quota, and the usual web risks (script injection, clickjacking).
 | --- | --- | --- |
 | Script injection (XSS) | Strict Content Security Policy: scripts, styles, images, fonts and requests only from this site; no plugins | `next.config.ts` |
 | Clickjacking | `X-Frame-Options: SAMEORIGIN` and `frame-ancestors 'self'` | `next.config.ts` |
-| Downgrade / sniffing | HSTS (2 years), `X-Content-Type-Options: nosniff`, `upgrade-insecure-requests` | `next.config.ts` |
+| Downgrade / sniffing | HSTS (2 years) and `upgrade-insecure-requests` in production only; `X-Content-Type-Options: nosniff` always. Dev skips HSTS/upgrade so `http://localhost` can load CSS/JS. | `next.config.ts` |
 | Leaking URLs to other sites | `Referrer-Policy: strict-origin-when-cross-origin` | `next.config.ts` |
 | Unneeded browser powers | `Permissions-Policy` turns off camera, microphone, location, payment, USB, topics | `next.config.ts` |
 | Framework fingerprinting | No `X-Powered-By` header | `next.config.ts` |
