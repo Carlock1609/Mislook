@@ -15,14 +15,15 @@ The product brief, `mislook-app-brief.md` at the repo root, is the source of tru
 
 ## Build status
 
-Written against build steps 1–2 of the brief, plus the site stats from step 6.
-The game rules (`normalize`, `score`, `reduce`, `share`, tests), the daily lock and
-the real images haven't landed yet; `components/Mislook.tsx` still uses simple
-placeholder round logic.
+Written against build steps 1–3 of the brief, plus the site stats from step 6.
+The game rules (`normalize`, `score`, `reduce`, `share`) and their tests are in
+`lib/`, but `components/Mislook.tsx` still uses simple placeholder round logic
+until step 4 wires them in. The daily lock and the real images haven't landed yet.
 
 ## Checks
 
 ```bash
+npm test
 npx tsc --noEmit
 npm run lint
 npm run build

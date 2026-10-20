@@ -7,15 +7,9 @@ import TopBar from "@/components/TopBar"
 import { button, panel } from "@/components/ui"
 import { copy, fill, STAGES, settings } from "@/lib/content"
 import { formatHms, formatMss, nextZonedMidnight } from "@/lib/daily"
+import type { RoundResult } from "@/lib/reduce"
 
-/** How a round ended. `stage` is the stage the player won on, or reached on a miss. */
-export type RoundResult = {
-  won: boolean
-  stage: number
-  score: number
-  elapsedSeconds: number
-  wrongGuesses: number
-}
+export type { RoundResult }
 
 /** Hours, minutes and seconds until the next Pacific midnight, ticking every second. */
 function NextImageCountdown() {

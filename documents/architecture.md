@@ -30,6 +30,11 @@ next.config.ts            security headers (CSP etc.), BotID rewrites
 lib/
   content.ts              typed access to content/*.json
   daily.ts                Pacific-time day maths (pure)
+  normalize.ts            answer matching (pure)
+  score.ts                scoring and time bonus (pure)
+  reduce.ts               the round as a state machine for useReducer (pure)
+  share.ts                spoiler-free share text (pure)
+  *.test.ts               Vitest tests for the pure rules (`npm test`)
   stats.ts                client side of the visit counter
   redis.ts                server-only Upstash REST client
   stats-guard.ts          cheap abuse checks for the stats route
@@ -68,7 +73,7 @@ All in `Mislook.tsx`, passed down as props:
 | State | Purpose |
 | --- | --- |
 | `phase` | Which screen shows |
-| `stage`, `locked`, `wrongGuesses`, `busy`, `result` | Placeholder round logic until build steps 3–4 |
+| `stage`, `locked`, `wrongGuesses`, `busy`, `result` | Placeholder round logic; step 4 replaces it with `useReducer(reduceRound)` from `lib/reduce.ts` |
 | `siteStats` | `undefined` loading, `null` failed (line hidden), or the totals |
 | `testView`, `tuning` | Test panel overrides (development only; never change the round) |
 

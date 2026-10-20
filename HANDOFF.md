@@ -5,7 +5,7 @@ Where the build stands, how it deploys, and what's next. Start here when you pic
 - **What the game should do:** [mislook-app-brief.md](mislook-app-brief.md). This is the source of truth for rules, numbers and copy.
 - **How the code does it:** [documents/](documents/README.md). Covers architecture, rendering, distortion styles, the test panel, site stats and security.
 
-Last updated: 2026-10-18.
+Last updated: 2026-10-19 (after build step 3).
 
 ---
 
@@ -15,8 +15,8 @@ Last updated: 2026-10-18.
 | --- | --- | --- |
 | 1 | Shell: how to play, coming soon, game and result states | ✅ Done |
 | 2 | WebGL image with four v1 styles, transitions, Canvas 2D fallback, dev test panel | ✅ Done (plus many test-panel candidate styles and a difficulty calibration script) |
-| 3 | Rules: `normalize`, `score`, `reduce`, `share`, with Vitest tests (also tests for `daily`) | ⬜ **Next** |
-| 4 | Wire the game: guess, reveal, timer, countdown, result | ⬜ |
+| 3 | Rules: `normalize`, `score`, `reduce`, `share`, with Vitest tests (also tests for `daily`) | ✅ Done (`npm test`) |
+| 4 | Wire the game: guess, reveal, timer, countdown, result | ⬜ **Next**: replace the placeholder round in `Mislook.tsx` with `useReducer(reduceRound)`, `pointsAvailable`, `shareText` |
 | 5 | Daily lock in `localStorage` | ⬜ |
 | 6 | Share text, link preview card, site stats | 🟡 Site stats done (Upstash Redis, BotID, rate limits). Share text and the preview card are left |
 | 7 | Op-art background, wordmark motion, keyboard/safe-area, loading/error states, a11y | ⬜ |
@@ -26,10 +26,10 @@ The "Done when" criteria for each step are in the brief under **Build order**.
 
 ### Known placeholders
 
-- `components/Mislook.tsx`: the round logic is a placeholder. Guess and Reveal don't use real rules, and there's no real timer or score yet (steps 3–4).
+- `components/Mislook.tsx`: the round logic is still a placeholder. The real rules exist in `lib/` (step 3) but aren't wired in yet (step 4).
 - `content/images.json`: 10 dummy images and answers (step 8).
 - `content/copy.json`: placeholder how-to-play, win and miss copy.
-- `motion` and `vitest` are in the brief's stack but **not installed yet**. Add Vitest in step 3, and add Motion when the UI motion work starts (step 4 or 7).
+- `motion` is in the brief's stack but **not installed yet**. Add it when the UI motion work starts (step 4 or 7).
 
 ---
 
@@ -62,13 +62,14 @@ Every deployment gets its own URL, like `mislook-hcsofnj5i-carlock-enterprise-s.
 npm install
 vercel env pull .env.local   # optional: real stats locally (after `vercel link`)
 npm run dev                  # http://localhost:3000, the TEST panel is in the top-left
+npm test                     # Vitest: pure rules in lib/*.test.ts
 npx tsc --noEmit && npm run lint && npm run build   # before pushing
 ```
 
 - `?day=N` (dev only) previews puzzle `#N`. `?day=0` shows Coming soon.
 - Code style: Prettier with `--no-semi --print-width 120`. Pure rules go in `lib/` and never import React.
 - Next.js 16 differs from older versions. Read `node_modules/next/dist/docs/` before using a new Next API (see `AGENTS.md`, which Cursor reads automatically).
-- To start a step in Cursor, prompt something like: *"Read HANDOFF.md, mislook-app-brief.md and documents/architecture.md, then do build step 3."*
+- To start a step in Cursor, prompt something like: *"Read HANDOFF.md, mislook-app-brief.md and documents/architecture.md, then do build step 4."*
 - Small tweaks can go straight to `main`. For bigger steps, push a branch and check the Vercel preview first.
 
 ### Order
