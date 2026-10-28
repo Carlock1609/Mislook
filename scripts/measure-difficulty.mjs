@@ -115,34 +115,17 @@ function render(scene, img) {
       const source = new Array(n)
       scene.slots.forEach((slot, i) => (source[slot] = i))
       from((u, v) => {
-        const slot = Math.floor(u * n)
-        return [(source[slot] + u * n - slot) / n, v]
+        const slot = Math.min(n - 1, Math.floor(u * n))
+        const src = source[slot]
+        return [(src + u * n - slot) / n, scene.up[src] < 0 ? 1 - v : v]
       })
       break
     }
     case "keyholes":
       each((u, v) => (scene.holes.some((h) => h.r > 0 && Math.hypot(u - h.x, v - h.y) < h.r) ? lumaAt(u, v) : 0))
       break
-    case "fisheye":
-      from((u, v) => S.fisheyeSource(u, v, scene.strength, scene.centerX, scene.centerY))
-      break
-    case "tunnel":
-      from((u, v) => S.tunnelSource(u, v, scene.scale, scene.twist, scene.centerX, scene.centerY))
-      break
-    case "kaleidoscope":
-      from((u, v) => S.kaleidoscopeSource(u, v, scene.amount, scene.segments, scene.spin, scene.source))
-      break
-    case "slices":
-      from((u, v) => S.sliceSource(u, v, scene.shift, scene.offsets))
-      break
     case "liquid":
       from((u, v) => S.liquidSource(u, v, scene.amplitude, scene.phases))
-      break
-    case "motionBlur":
-      each((u, v) => S.motionBlurValue(u, v, scene.length, scene.angle, lumaAt))
-      break
-    case "mosaic":
-      each((u, v) => S.mosaicValue(u, v, scene.cell, lumaAt))
       break
     default:
       throw new Error(`No renderer for ${scene.kind}`)
@@ -249,13 +232,7 @@ const RANGES = {
   "ring-lock": { turn: [1, 0.004] },
   shredder: { outOfPlace: [1, 0.06] },
   keyholes: { holes: [2, 32], radius: [0.022, 0.17] },
-  fisheye: { strength: [4, 0.05] },
-  tunnel: { scale: [0.95, 0.1], twist: [0.7, 0.05] },
-  kaleidoscope: { amount: [1, 0.02], segments: [12, 6] },
-  "slice-glitch": { shift: [1, 0.01] },
   "liquid-warp": { amplitude: [0.25, 0.008] },
-  "motion-blur": { length: [0.5, 0.01] },
-  mosaic: { cell: [0.2, 0.012] },
 }
 /** Keys that change size-like quantities move geometrically, so small values get as much room as large ones. */
 const GEOMETRIC = new Set(["cell", "offset", "length", "amplitude", "radius", "holes", "strength", "threshold"])

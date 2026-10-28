@@ -133,7 +133,7 @@ Each style has one *intensity* knob that goes from hardest (stage 1) to easiest 
 | Two-tone | Dropped | Removed from the rotation and the test panel |
 | Ripple | **Keep (v1)** | |
 | Darkness / spotlight | Dropped | Retested in the app and removed |
-| Kaleidoscope | Retest | The POC version was likely weak; rebuild it properly (WebGL) and judge again |
+| Kaleidoscope | Dropped | Removed from the test panel |
 | Slice / echo, stripe overlay, halftone, edges only, swirl | Dropped | |
 | Pixelate, blur | Dropped | Soft and familiar; don't fit the look |
 
@@ -146,10 +146,8 @@ These go in the test panel and only join the rotation if they feel good.
 | Ring lock | Image cut into concentric rings, each turned a different amount, like a combination lock | Rings rotate back into line |
 | Shredder | Image cut into thin vertical strips, shuffled | Strips return to order |
 | Keyholes | Black, with a few small round holes scattered across the image | Holes grow and multiply |
-| Fisheye | Extreme lens bulge, centred away from the subject | Bulge flattens |
-| Tunnel | Image repeating into itself, Inception-style | Repeats unwind |
 
-Rotated tiles, shattered glass, melt, static, and negative were tried and removed. Further experiments still in the test panel: slice glitch, liquid warp, motion blur, and mosaic. RGB split, halftone, ordered dither, ASCII, scanlines, and edges only were removed. See `documents/distortion-styles.md`.
+Rotated tiles, shattered glass, melt, static, negative, fisheye, tunnel, and kaleidoscope were tried and removed. The experiment still in the test panel is liquid warp. Slice glitch, motion blur, and mosaic were removed, along with RGB split, halftone, ordered dither, ASCII, scanlines, and edges only. See `documents/distortion-styles.md`.
 
 #### How styles map to stages
 
@@ -174,7 +172,7 @@ These are harder than the POC.
 
 **Rules per style:**
 
-- **Style ids:** `tile-shuffle`, `hidden-tiles`, and `ripple`. `kaleidoscope`, the remaining candidates, and the further experiments exist in the test panel only.
+- **Style ids:** `tile-shuffle`, `hidden-tiles`, and `ripple`. Ring lock, shredder, keyholes, and liquid warp exist in the test panel only.
 - **Tile shuffle:** one grid for every stage (`tileGrid`, starting at 8 × 8).
   - Tiles out of place = round(fraction × columns × rows).
   - On stages 1–2, some of those tiles are also rotated.
@@ -278,7 +276,7 @@ Everything you'd want to change without touching components lives in `content/`.
 
 `content/settings.json`: `DAY_0`, `tileGrid`, every style's stage values, and the scoring numbers.
 
-An image may also set `"focus": [0.5, 0.4]` to mark where the subject is; test-panel styles such as fisheye use it to aim away from the subject.
+An image may also set `"focus": [0.5, 0.4]` to mark where the subject is. No current style reads it.
 
 The current ten photos and their keyword lists are in `content/images.json`. `title` is what the result shows. `accept` is every guess that wins.
 

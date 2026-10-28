@@ -12,7 +12,7 @@
  */
 
 import { createAnimator, type Renderer, type ShowOptions, TRANSITION_MS } from "@/lib/gl/renderer"
-import { easeInOut, MAX_BANDS, MAX_HOLES, type Scene } from "@/lib/gl/scene"
+import { easeInOut, MAX_HOLES, type Scene } from "@/lib/gl/scene"
 import {
   CANDIDATE_FRAGMENT,
   EXPERIMENT_FRAGMENT,
@@ -224,14 +224,20 @@ export function createWebGLRenderer(canvas: HTMLCanvasElement): Renderer | null 
       return
     }
 
-    // Shredder: full-height strips slide sideways back into order.
+    // Shredder: full-height strips slide sideways back into order. Some are upside down.
     if (to.kind === "strips" && from.kind === "strips") {
       const n = to.slots.length
       const inset = image ? 0.5 / image.naturalWidth : 0
       const vertices: number[] = []
       to.slots.forEach((slot, i) => {
         const cx = (lerp(from.slots[i], slot, e) + 0.5) / n
-        pushQuad(vertices, cx, 0.5, 0.5 / n, 0.5, 0, [i / n + inset, 0, (i + 1) / n - inset, 1])
+        const down = (e < 0.5 ? from.up[i] : to.up[i]) < 0
+        pushQuad(vertices, cx, 0.5, 0.5 / n, 0.5, 0, [
+          i / n + inset,
+          down ? 1 : 0,
+          (i + 1) / n - inset,
+          down ? 0 : 1,
+        ])
       })
       bindImage(tileProgram!, "u_image", 0, imageTexture)
       ctx.uniform1f(uniform(tileProgram!, "u_solid"), 0)
@@ -278,9 +284,6 @@ export function createWebGLRenderer(canvas: HTMLCanvasElement): Renderer | null 
   function drawCandidate(from: Scene, to: Scene, e: number) {
     const modes: Partial<Record<Scene["kind"], number>> = {
       rings: 1,
-      fisheye: 4,
-      tunnel: 5,
-      kaleidoscope: 7,
       keyholes: 8,
     }
     const mode = modes[to.kind]
@@ -288,7 +291,6 @@ export function createWebGLRenderer(canvas: HTMLCanvasElement): Renderer | null 
     candidateProgram ??= program(CANDIDATE_FRAGMENT)
     const p = candidateProgram
     const set1 = (name: string, v: number) => ctx.uniform1f(uniform(p, name), v)
-    const set2 = (name: string, a: number, b: number) => ctx.uniform2f(uniform(p, name), a, b)
     bindImage(p, "u_image", 0, imageTexture)
     set1("u_mode", mode)
     set1("u_px", 1 / size)
@@ -297,18 +299,6 @@ export function createWebGLRenderer(canvas: HTMLCanvasElement): Renderer | null 
       // Each ring turns back towards its next angle, like a combination lock.
       set1("u_ringCount", to.angles.length)
       ctx.uniform1fv(uniform(p, "u_angles"), new Float32Array(to.angles.map((a, i) => lerp(from.angles[i], a, e))))
-    } else if (to.kind === "fisheye" && from.kind === "fisheye") {
-      set2("u_center", to.centerX, to.centerY)
-      set1("u_strength", lerp(from.strength, to.strength, e))
-    } else if (to.kind === "tunnel" && from.kind === "tunnel") {
-      set2("u_center", to.centerX, to.centerY)
-      set1("u_strength", lerp(from.scale, to.scale, e))
-      set1("u_twist", lerp(from.twist, to.twist, e))
-    } else if (to.kind === "kaleidoscope" && from.kind === "kaleidoscope") {
-      set1("u_amount", lerp(from.amount, to.amount, e))
-      set1("u_segments", lerp(from.segments, to.segments, e))
-      // The wedges turn during the transition and come back to the seeded angle.
-      set2("u_spin", to.spin + Math.sin(Math.PI * e) * Math.PI * 0.5, to.source)
     } else if (to.kind === "keyholes" && from.kind === "keyholes") {
       const holes = new Float32Array(MAX_HOLES * 3)
       to.holes.forEach((h, i) => holes.set([h.x, h.y, lerp(from.holes[i].r, h.r, e)], i * 3))
@@ -321,10 +311,7 @@ export function createWebGLRenderer(canvas: HTMLCanvasElement): Renderer | null 
   /** Full-screen experiment styles. Returns false when `to` isn't one. */
   function drawExperiment(from: Scene, to: Scene, e: number) {
     const modes: Partial<Record<Scene["kind"], number>> = {
-      slices: 2,
       liquid: 3,
-      motionBlur: 9,
-      mosaic: 10,
     }
     const mode = modes[to.kind]
     if (!mode || from.kind !== to.kind) return false
@@ -337,23 +324,11 @@ export function createWebGLRenderer(canvas: HTMLCanvasElement): Renderer | null 
     // Filter styles fade to the photo on the final reveal (see EXPERIMENT_FRAGMENT).
     set1("u_reveal", lerp(from.colour ? 1 : 0, to.colour ? 1 : 0, e))
 
-    if (to.kind === "slices" && from.kind === "slices") {
-      // Bands slide back into line.
-      set1("u_amount", lerp(from.shift, to.shift, e))
-      set1("u_bandCount", to.offsets.length)
-      const bands = new Float32Array(MAX_BANDS)
-      bands.set(to.offsets)
-      ctx.uniform1fv(uniform(p, "u_bands"), bands)
-    } else if (to.kind === "liquid" && from.kind === "liquid") {
+    if (to.kind === "liquid" && from.kind === "liquid") {
       set1("u_amount", lerp(from.amplitude, to.amplitude, e))
       // The waves flow during the transition and come back to the seeded phase.
       const swing = Math.sin(Math.PI * e) * Math.PI
       ctx.uniform4fv(uniform(p, "u_phases"), new Float32Array(to.phases.map((ph) => ph + swing)))
-    } else if (to.kind === "motionBlur" && from.kind === "motionBlur") {
-      set1("u_amount", lerp(from.length, to.length, e))
-      set1("u_angle", to.angle)
-    } else if (to.kind === "mosaic" && from.kind === "mosaic") {
-      set1("u_amount", lerp(from.cell, to.cell, e))
     }
     draw(p, FULL_QUAD)
     return true

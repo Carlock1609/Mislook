@@ -16,7 +16,7 @@ Styles come in three groups, defined in `lib/gl/scene.ts`:
 `ALL_STYLES` is all three, in that order. A style only joins the rotation by moving
 it into `ROTATION_STYLES` *and* `StyleId` in `lib/content.ts`.
 
-**Removed:** Darkness / spotlight, two-tone, rotated tiles, shattered glass, melt, static, negative, RGB split, halftone, ordered dither, ASCII, scanlines, and edges only.
+**Removed:** Darkness / spotlight, two-tone, rotated tiles, shattered glass, melt, static, negative, RGB split, halftone, ordered dither, ASCII, scanlines, edges only, fisheye, tunnel, kaleidoscope, slice glitch, motion blur, and mosaic.
 
 ## Rotation (v1)
 
@@ -35,26 +35,19 @@ stage reveals about the same amount more. Current numbers are in `content/settin
 
 | Id | What you see | Knob | Other keys | Scene kind |
 | --- | --- | --- | --- | --- |
-| `ring-lock` | Concentric rings each turned like a combination lock | `turn` | `rings` (fixed) | `rings` |
-| `shredder` | Thin vertical strips shuffled | `outOfPlace` | `strips` (fixed) | `strips` |
+| `ring-lock` | 48 thin concentric rings, each turned like a combination lock | `turn` | `rings` (fixed) | `rings` |
+| `shredder` | 64 thin vertical strips, shuffled. Every other strip can be upside down | `outOfPlace` | `strips` (fixed), `upsideDown` | `strips` |
 | `keyholes` | Black with round holes that grow and multiply | `holes` | `radius` | `keyholes` |
-| `fisheye` | Lens bulge centred across the image from the subject | `strength` | | `fisheye` |
-| `tunnel` | The image repeats into itself, each copy turned | `scale` | `twist` | `tunnel` |
-| `kaleidoscope` | Mirrored wedges mixed with the plain image | `amount` | `segments` | `kaleidoscope` |
 
-Fisheye and tunnel use the image's optional `focus` (`[x, y]` in `images.json`) and
-centre themselves on the opposite side, or in a seeded direction when there's no focus.
+`upsideDown` is the share of those alternating strips that are flipped. Stage 1 flips all of them, so neighbouring frames run back and forth. Later stages unflip from the end. The clear image is upright.
 
 ## Experiments
 
-From an outside list of distortion ideas. Fisheye is already a candidate, so it isn't repeated.
+From an outside list of distortion ideas.
 
 | Id | What you see | Knob | Other keys | Scene kind |
 | --- | --- | --- | --- | --- |
-| `slice-glitch` | Horizontal bands slid sideways, wrapping around | `shift` | `bands` (fixed) | `slices` |
 | `liquid-warp` | Nested sine waves bend the image like heat haze | `amplitude` | | `liquid` |
-| `motion-blur` | Directional blur along a seeded angle | `length` | | `motionBlur` |
-| `mosaic` | Big flat blocks | `cell` | | `mosaic` |
 
 Sizes like `cell`, `offset`, `length` and `amplitude` are shares of the image side,
 so they look the same at every canvas size.
@@ -78,8 +71,6 @@ node scripts/measure-difficulty.mjs --calibrate  # plus suggested evenly spaced 
   script). It walks a dial between them and picks stage values whose scores
   step evenly from 0.1 (stage 1) to 0.7 (stage 5). When a style can't get that
   hard within a sensible range, stage 1 sits at its hardest and the steps stay even.
-- **Inherently easy at stage 1:** motion blur keeps the gist even at its strongest
-  sensible setting (scores around 0.5).
 - The v1 rotation styles keep the brief's values. On this score, hidden tiles ends hard (0.43).
 
 ## Tuning notes
