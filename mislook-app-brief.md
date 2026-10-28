@@ -83,12 +83,11 @@ Visiting again after finishing today goes straight to the result state.
 - A new image every day at 00:00 in America/Los_Angeles (Pacific time, including daylight saving). Everyone gets the same image for that Pacific date.
 - `DAY_0` is the first deploy date, in `content/settings.json`.
 - `dayIndex` is the number of Pacific midnights from `DAY_0` to today. On `DAY_0`, `dayIndex` is 0. Before `DAY_0`, `dayIndex` is negative.
-- The number in the UI and in share text is `dayIndex + 1` (`#1` on `DAY_0`).
-- The image is `images[dayIndex % images.length]`, using a non-negative modulo. Index 0 is the first object in `content/images.json`. The displayed number does not loop.
+- The number in the UI and in share text is the place in the image list, starting at `#1` on `DAY_0`. After the last image, the next day is `#1` again and uses the first image. The calendar date used for the lock and the share line does not restart.
 - Before `DAY_0`, select no image and show Coming soon.
 - If the page is left open past midnight, the round in progress finishes on the old day’s image and saves that date.
 - Development only: a small **test panel** in the top-left corner has three controls: an **image** button that cycles through every image in `images.json`, a **style** button that cycles through every distortion style (including ones not yet in rotation), **stage** buttons for 1–5 and the clear image, and an **intensity** slider for tuning the current style and stage. It is hidden in production builds and never affects the daily lock or scoring.
-- Development only: `?day=N` sets the displayed number (`?day=12` shows `#12` and `dayIndex` 11). It does not read or write the daily lock. `?day` less than 1 shows Coming soon. Play state never changes the URL. `?day` is the only query the page reads.
+- Development only: `?day=N` previews puzzle number N when that photo exists (`?day=1` is the first image). It does not read or write the daily lock. A `?day` that is not an integer from 1 through the number of images is removed from the URL, and the page shows the real current day. Play state never changes the URL. `?day` is the only query the page reads.
 
 ---
 
@@ -122,7 +121,7 @@ Each style has one *intensity* knob that goes from hardest (stage 1) to easiest 
 - Most players solve at stage 3 or 4.
 - Stage 5 still takes a moment.
 
-**Greyscale until the end:** stages 1–5 are always greyscale, whatever the style. Colour gives away too much, so it appears only with the clear image on the result.
+**Color throughout:** stages 1–5 and the clear image all keep the photo's original colors.
 
 #### Verdicts from the POC
 
@@ -133,7 +132,7 @@ Each style has one *intensity* knob that goes from hardest (stage 1) to easiest 
 | Two-tone | Dropped | Removed from the rotation and the test panel |
 | Ripple | **Keep (v1)** | |
 | Darkness / spotlight | Dropped | Retested in the app and removed |
-| Kaleidoscope | Retest | The POC version was likely weak; rebuild it properly (WebGL) and judge again |
+| Kaleidoscope | Dropped | Removed from the test panel |
 | Slice / echo, stripe overlay, halftone, edges only, swirl | Dropped | |
 | Pixelate, blur | Dropped | Soft and familiar; don't fit the look |
 
@@ -146,10 +145,8 @@ These go in the test panel and only join the rotation if they feel good.
 | Ring lock | Image cut into concentric rings, each turned a different amount, like a combination lock | Rings rotate back into line |
 | Shredder | Image cut into thin vertical strips, shuffled | Strips return to order |
 | Keyholes | Black, with a few small round holes scattered across the image | Holes grow and multiply |
-| Fisheye | Extreme lens bulge, centred away from the subject | Bulge flattens |
-| Tunnel | Image repeating into itself, Inception-style | Repeats unwind |
 
-Rotated tiles, shattered glass, melt, static, and negative were tried and removed. Further experiments still in the test panel: slice glitch, liquid warp, motion blur, and mosaic. RGB split, halftone, ordered dither, ASCII, scanlines, and edges only were removed. See `documents/distortion-styles.md`.
+Rotated tiles, shattered glass, melt, static, negative, fisheye, tunnel, and kaleidoscope were tried and removed. The experiment still in the test panel is liquid warp. Slice glitch, motion blur, and mosaic were removed, along with RGB split, halftone, ordered dither, ASCII, scanlines, and edges only. See `documents/distortion-styles.md`.
 
 #### How styles map to stages
 
@@ -174,7 +171,7 @@ These are harder than the POC.
 
 **Rules per style:**
 
-- **Style ids:** `tile-shuffle`, `hidden-tiles`, and `ripple`. `kaleidoscope`, the remaining candidates, and the further experiments exist in the test panel only.
+- **Style ids:** `tile-shuffle`, `hidden-tiles`, and `ripple`. Ring lock, shredder, keyholes, and liquid warp exist in the test panel only.
 - **Tile shuffle:** one grid for every stage (`tileGrid`, starting at 8 × 8).
   - Tiles out of place = round(fraction × columns × rows).
   - On stages 1–2, some of those tiles are also rotated.
@@ -232,6 +229,7 @@ Normalization, applied to the guess and every accepted answer:
 
 - Lowercase
 - Strip accents
+- Delete apostrophes, leaving no space (`Peach's` and `Peachs` match)
 - `&` → `and`
 - Runs of non-alphanumeric characters → single space
 - Trim
@@ -278,7 +276,7 @@ Everything you'd want to change without touching components lives in `content/`.
 
 `content/settings.json`: `DAY_0`, `tileGrid`, every style's stage values, and the scoring numbers.
 
-An image may also set `"focus": [0.5, 0.4]` to mark where the subject is; test-panel styles such as fisheye use it to aim away from the subject.
+An image may also set `"focus": [0.5, 0.4]` to mark where the subject is. No current style reads it.
 
 The current ten photos and their keyword lists are in `content/images.json`. `title` is what the result shows. `accept` is every guess that wins.
 

@@ -63,9 +63,9 @@ Coming soon (before DAY_0)
 How to play  --Play-->  Game  -->  Result
 ```
 
-- `?day=N` previews puzzle number N, in development only.
-- The image is `images[dayIndex % images.length]`; the seed for every random
-  layout is `mislook-<puzzle number>`, so all players see the same distortion.
+- The puzzle number and the image both wrap after the last photo, so the next day is `#1` again. The saved date stays the real Pacific date.
+- `?day=N` previews puzzle number N in development, and only when a photo exists for N. Any other `?day` is removed from the URL and the real day is shown.
+- The seed for every random layout is `mislook-<puzzle number>`, so all players see the same distortion.
 
 ## Where state lives
 

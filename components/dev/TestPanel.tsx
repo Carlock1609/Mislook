@@ -3,11 +3,9 @@
 import { useState } from "react"
 import { STAGES } from "@/lib/content"
 import {
+  ALL_STYLES,
   type AnyStyleId,
-  CANDIDATE_STYLES,
-  EXPERIMENT_STYLES,
   KNOBS,
-  ROTATION_STYLES,
   type StageView,
   STYLE_LABELS,
   styleValues,
@@ -16,13 +14,6 @@ import {
 
 /** localStorage key remembering whether the panel is open (dev convenience only). */
 const OPEN_KEY = "mislook:test-panel-open"
-
-/** Style groups for the picker, in the order the panel lists them. */
-const STYLE_GROUPS: { label: string; styles: readonly AnyStyleId[] }[] = [
-  { label: "Rotation", styles: ROTATION_STYLES },
-  { label: "Candidates", styles: CANDIDATE_STYLES },
-  { label: "Experiments", styles: EXPERIMENT_STYLES },
-]
 
 function readOpen() {
   try {
@@ -45,8 +36,8 @@ const chip =
   "min-h-7 cursor-pointer border border-line bg-surface px-2 text-left text-micro text-ink hover:border-accent hover:text-accent disabled:cursor-not-allowed disabled:opacity-40"
 
 /**
- * Development-only distortion tuning panel. It changes what the image shows,
- * never the round, timer, score or daily lock.
+ * Distortion tuning panel. Cycling the image also switches which keywords a
+ * guess must match. The timer, score, and daily lock stay on the real day.
  *
  * Collapsed to a small "TEST" tab on the left edge by default so it doesn't
  * cover the game; the open/closed state is remembered per browser.
@@ -113,14 +104,10 @@ export default function TestPanel({
               value={style}
               onChange={(event) => onStyle(event.target.value as AnyStyleId)}
             >
-              {STYLE_GROUPS.map((group) => (
-                <optgroup key={group.label} label={group.label}>
-                  {group.styles.map((id) => (
-                    <option key={id} value={id}>
-                      {STYLE_LABELS[id]}
-                    </option>
-                  ))}
-                </optgroup>
+              {ALL_STYLES.map((id) => (
+                <option key={id} value={id}>
+                  {STYLE_LABELS[id]}
+                </option>
               ))}
             </select>
           </div>

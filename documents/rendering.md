@@ -26,9 +26,9 @@ Everything is in `lib/gl/`.
 
 ### Scenes
 
-A `Scene` is a plain object: a `kind` (which drawing routine), `colour` (true only
-for the clear stage 0), and the numbers that routine needs: tile positions, ring
-angles, a blur length and so on. Rules:
+A `Scene` is a plain object: a `kind` (which drawing routine), `colour` (always
+true, so the photo keeps its own colors), and the numbers that routine needs:
+tile positions, ring angles, a blur length and so on. Rules:
 
 - **Stage 1 is hardest, stage 5 easiest, stage 0 is the clear colour image.**
 - Randomness only comes from `seededRandom(seed + ":" + purpose)`. Each style
@@ -45,11 +45,8 @@ Full-screen styles are written twice, once in TypeScript (`scene.ts`) and once i
 GLSL (`shaders.ts`), with the same formulas. Coordinates are `u, v` in [0, 1],
 origin top-left. Two shapes:
 
-- **Source mappings** (`ringSource`, `fisheyeSource`, `tunnelSource`,
-  `kaleidoscopeSource`, `sliceSource`, `liquidSource`) return which point of the
+- **Source mappings** (`ringSource`, `liquidSource`) return which point of the
   image to show at (u, v), or null for black.
-- **Value functions** (`motionBlurValue`, `mosaicValue`) return a grey
-  value, reading the image through a `lumaAt(u, v)` callback.
 
 When you change a formula, change both copies. The Canvas 2D fallback is the
 easiest way to check they still agree (see "Checking the fallback" below).
@@ -68,7 +65,7 @@ Each frame is two passes:
 2. **Post pass** to the screen (`POST` program): glitch slices and an RGB split
    while a transition plays (the pattern changes only 3 times per transition,
    never per frame), a crossfade when the style kind changes or motion is
-   reduced, and greyscale for every stage except the clear image.
+   reduced. The photo stays in its own colors at every stage.
 
 Details worth knowing:
 
@@ -85,10 +82,9 @@ Details worth knowing:
 
 `TRANSITION_MS` is 1000. `MislookImage` asks for `stage` between stages, `final`
 into the clear image, and `none` otherwise. Within one kind the style pass
-interpolates, so rings turn back into line, strips slide home,
-keyholes grow, and ripple and liquid waves flow and settle on the seeded phase.
-Mosaic doesn't relax to "no effect" by itself, so its final reveal fades the
-filter into the photo (`u_reveal`).
+interpolates, so rings turn back into line, strips slide home and upside-down
+strips flip upright, keyholes grow, and ripple and liquid waves flow and settle
+on the seeded phase.
 
 ## The Canvas 2D fallback (`canvas2d.ts`)
 

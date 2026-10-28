@@ -9,15 +9,20 @@ const ACCENTS = new RegExp("\\p{M}+", "gu")
 const NON_ALPHANUMERIC = new RegExp("[^\\p{L}\\p{N}]+", "gu")
 const LEADING_ARTICLE = /^(?:a|an|the) /
 
+/** Apostrophes are deleted, not turned into a space, so "Peach's" and "Peachs" match. */
+const APOSTROPHE = /['\u2018\u2019\u02BC\uFF07]/g
+
 /**
- * Lowercase, strip accents, `&` → `and`, runs of anything that isn't a letter or
- * digit → one space, trim, then drop one leading `a`, `an` or `the` word.
+ * Lowercase, strip accents, delete apostrophes, `&` → `and`, runs of anything
+ * that isn't a letter or digit → one space, trim, then drop one leading `a`,
+ * `an` or `the` word.
  */
 export function normalize(text: string) {
   return text
     .toLowerCase()
     .normalize("NFD")
     .replace(ACCENTS, "")
+    .replace(APOSTROPHE, "")
     .replace(/&/g, " and ")
     .replace(NON_ALPHANUMERIC, " ")
     .trim()

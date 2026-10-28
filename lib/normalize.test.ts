@@ -6,6 +6,11 @@ describe("normalize", () => {
   it("strips accents", () => expect(normalize("Crème Brûlée")).toBe("creme brulee"))
   it("turns & into and", () => expect(normalize("Rock & Roll")).toBe("rock and roll"))
   it("collapses punctuation and spaces", () => expect(normalize("  phone--box!!  ")).toBe("phone box"))
+  it("deletes apostrophes instead of leaving a space", () => {
+    expect(normalize("Peach's Castle")).toBe("peachs castle")
+    expect(normalize("Peach's Castle")).toBe(normalize("Peachs Castle"))
+    expect(normalize("Na'vi")).toBe("navi")
+  })
   it("keeps digits", () => expect(normalize("R2-D2")).toBe("r2 d2"))
   it("keeps non-latin letters", () => expect(normalize("Øresund")).toBe("øresund"))
 

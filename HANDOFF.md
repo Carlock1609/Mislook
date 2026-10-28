@@ -68,7 +68,8 @@ npm test                     # Vitest: pure rules in lib/*.test.ts
 npx tsc --noEmit && npm run lint && npm run build   # before pushing
 ```
 
-- `?day=N` (dev only) previews puzzle `#N`. `?day=0` shows Coming soon.
+- `?day=N` (dev only, or with the test link) previews puzzle `#N` when that photo exists. Any other `?day` is removed and the real day is shown. After the last image, the next day is `#1` again.
+- Live test link: `?test=` plus `MISLOOK_TEST_KEY` (Vercel env, and `.env.local` locally). The key stays on the server. It shows the TEST panel and skips the daily lock. It does not count a visit.
 - Code style: Prettier with `--no-semi --print-width 120`. Pure rules go in `lib/` and never import React.
 - Next.js 16 differs from older versions. Read `node_modules/next/dist/docs/` before using a new Next API (see `AGENTS.md`, which Cursor reads automatically).
 - To start a step in Cursor, prompt something like: *"Read HANDOFF.md, mislook-app-brief.md and documents/architecture.md, then do build step 4."*

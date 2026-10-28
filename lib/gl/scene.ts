@@ -16,14 +16,16 @@
 import { settings } from "@/lib/content"
 import { seededRandom, shuffledIndices } from "@/lib/gl/random"
 
-/** Styles in the daily rotation. */
-export const ROTATION_STYLES = ["tile-shuffle", "hidden-tiles", "ripple"] as const
-/** Styles being judged in the test panel. They never join the rotation from here. */
-export const CANDIDATE_STYLES = ["ring-lock", "shredder", "keyholes", "fisheye", "tunnel", "kaleidoscope"] as const
-/** Further experiments to judge by eye (from an outside list of distortion ideas). Test panel only. */
-export const EXPERIMENT_STYLES = ["slice-glitch", "liquid-warp", "motion-blur", "mosaic"] as const
-/** Every style the test panel can show: rotation, then candidates, then experiments. */
-export const ALL_STYLES = [...ROTATION_STYLES, ...CANDIDATE_STYLES, ...EXPERIMENT_STYLES] as const
+/** Every style the test panel can show. Daily images may only use a `StyleId` from `lib/content.ts`. */
+export const ALL_STYLES = [
+  "tile-shuffle",
+  "hidden-tiles",
+  "ripple",
+  "ring-lock",
+  "shredder",
+  "keyholes",
+  "liquid-warp",
+] as const
 /** Any style id the renderers understand, including test-panel-only ones. */
 export type AnyStyleId = (typeof ALL_STYLES)[number]
 
@@ -35,13 +37,7 @@ export const STYLE_LABELS: Record<AnyStyleId, string> = {
   "ring-lock": "Ring lock",
   shredder: "Shredder",
   keyholes: "Keyholes",
-  fisheye: "Fisheye",
-  tunnel: "Tunnel",
-  kaleidoscope: "Kaleidoscope",
-  "slice-glitch": "Slice glitch",
   "liquid-warp": "Liquid warp",
-  "motion-blur": "Motion blur",
-  mosaic: "Mosaic",
 }
 
 /**
@@ -55,13 +51,7 @@ export const KNOBS: Record<AnyStyleId, { key: string; min: number; max: number; 
   "ring-lock": { key: "turn", min: 0, max: 1, step: 0.01 },
   shredder: { key: "outOfPlace", min: 0, max: 1, step: 0.01 },
   keyholes: { key: "holes", min: 1, max: 32, step: 1 },
-  fisheye: { key: "strength", min: 0, max: 4, step: 0.05 },
-  tunnel: { key: "scale", min: 0, max: 0.9, step: 0.01 },
-  kaleidoscope: { key: "amount", min: 0, max: 1, step: 0.01 },
-  "slice-glitch": { key: "shift", min: 0, max: 1, step: 0.01 },
   "liquid-warp": { key: "amplitude", min: 0, max: 0.2, step: 0.002 },
-  "motion-blur": { key: "length", min: 0, max: 0.3, step: 0.002 },
-  mosaic: { key: "cell", min: 0.005, max: 0.15, step: 0.001 },
 }
 
 /** Per-stage values for one style, keyed like settings.json. */
@@ -90,24 +80,18 @@ export type Hole = { x: number; y: number; r: number }
 export type Shard = { tri: number[]; pivotX: number; pivotY: number; dx: number; dy: number; rot: number }
 
 /**
- * Everything a renderer needs to draw one settled stage. `colour` is true only
- * for the clear image; every distorted stage is greyscale. Transitions
- * interpolate between two scenes of the same `kind`.
+ * Everything a renderer needs to draw one settled stage. `colour` stays true:
+ * every stage keeps the photo's own colors. Transitions interpolate between
+ * two scenes of the same `kind`.
  */
 export type Scene = { colour: boolean } & (
   | { kind: "tiles"; grid: number; tiles: Tile[] }
   | { kind: "hidden"; grid: number; hidden: boolean[]; delay: number[] }
   | { kind: "ripple"; amplitude: number; waves: number; phaseX: number; phaseY: number }
   | { kind: "rings"; angles: number[] }
-  | { kind: "strips"; slots: number[] }
+  | { kind: "strips"; slots: number[]; up: number[] }
   | { kind: "keyholes"; holes: Hole[] }
-  | { kind: "fisheye"; strength: number; centerX: number; centerY: number }
-  | { kind: "tunnel"; scale: number; twist: number; centerX: number; centerY: number }
-  | { kind: "kaleidoscope"; amount: number; segments: number; spin: number; source: number }
-  | { kind: "slices"; shift: number; offsets: number[] }
   | { kind: "liquid"; amplitude: number; phases: number[] }
-  | { kind: "motionBlur"; length: number; angle: number }
-  | { kind: "mosaic"; cell: number }
 )
 
 /** Inputs to `buildScene`. */
@@ -128,14 +112,12 @@ export type SceneInput = {
  * `strips` or `grid`) are the same at every stage so that the 1s transition
  * between stages can interpolate piece by piece.
  */
-export function buildScene({ style, stage, seed, tuning, focus }: SceneInput): Scene {
+export function buildScene({ style, stage, seed, tuning }: SceneInput): Scene {
   const values = styleValues(style, tuning)
   const clear = stage === 0
   const at = (key: string) => values[key][stage - 1]
   /** A value that stays the same at every stage, so transitions line up. */
   const fixed = (key: string) => values[key][0]
-  /** The stage-5 value, for styles whose clear stage fades rather than relaxes. */
-  const last = (key: string) => values[key][STAGE_COUNT - 1]
   const grid = settings.tileGrid
   const count = grid * grid
 
@@ -143,7 +125,7 @@ export function buildScene({ style, stage, seed, tuning, focus }: SceneInput): S
     case "tile-shuffle":
       return {
         kind: "tiles",
-        colour: clear,
+        colour: true,
         grid,
         tiles: tileLayout(seed, grid, clear ? 0 : at("outOfPlace"), clear ? 0 : at("rotated")),
       }
@@ -152,7 +134,7 @@ export function buildScene({ style, stage, seed, tuning, focus }: SceneInput): S
       const visible = clear ? count : Math.round(at("visible") * count)
       return {
         kind: "hidden",
-        colour: clear,
+        colour: true,
         grid,
         hidden: rank.map((r) => r >= visible),
         // Newly opened tiles flip in a seeded, staggered order.
@@ -163,7 +145,7 @@ export function buildScene({ style, stage, seed, tuning, focus }: SceneInput): S
       const random = seededRandom(`${seed}:ripple`)
       return {
         kind: "ripple",
-        colour: clear,
+        colour: true,
         amplitude: clear ? 0 : at("amplitude"),
         waves: clear ? values.waves[STAGE_COUNT - 1] : at("waves"),
         phaseX: random() * Math.PI * 2,
@@ -175,7 +157,7 @@ export function buildScene({ style, stage, seed, tuning, focus }: SceneInput): S
       const turn = clear ? 0 : at("turn")
       return {
         kind: "rings",
-        colour: clear,
+        colour: true,
         angles: Array.from({ length: Math.min(MAX_RINGS, fixed("rings")) }, () => {
           const sign = random() < 0.5 ? -1 : 1
           return sign * (0.35 + 0.65 * random()) * Math.PI * turn
@@ -185,14 +167,26 @@ export function buildScene({ style, stage, seed, tuning, focus }: SceneInput): S
     case "shredder": {
       const strips = fixed("strips")
       const order = shuffledIndices(strips, seededRandom(`${seed}:strips`))
-      return { kind: "strips", colour: clear, slots: cycleCells(order, clear ? 0 : at("outOfPlace")) }
+      // Every other strip is upside down, so neighbouring frames run back and forth.
+      // Later stages unflip those strips from the end and leave the rest upright.
+      const start = seededRandom(`${seed}:strip-flip`)() < 0.5 ? 0 : 1
+      const downs = Array.from({ length: strips }, (_, i) => i).filter((i) => (i + start) % 2 === 1)
+      const flipped = clear ? 0 : Math.round(at("upsideDown") * downs.length)
+      const up = Array.from({ length: strips }, () => 1)
+      for (let i = 0; i < flipped; i++) up[downs[i]] = -1
+      return {
+        kind: "strips",
+        colour: true,
+        slots: cycleCells(order, clear ? 0 : at("outOfPlace")),
+        up,
+      }
     }
     case "keyholes": {
       const count = clear ? MAX_HOLES : Math.round(at("holes"))
       const radius = clear ? 1.5 : at("radius")
       return {
         kind: "keyholes",
-        colour: clear,
+        colour: true,
         holes: holeLayout(seed).map((h, k) => ({
           x: h.x,
           y: h.y,
@@ -200,69 +194,16 @@ export function buildScene({ style, stage, seed, tuning, focus }: SceneInput): S
         })),
       }
     }
-    case "fisheye": {
-      const [centerX, centerY] = awayFromSubject(seed, focus)
-      return { kind: "fisheye", colour: clear, strength: clear ? 0 : at("strength"), centerX, centerY }
-    }
-    case "tunnel": {
-      const [centerX, centerY] = awayFromSubject(seed, focus)
-      return {
-        kind: "tunnel",
-        colour: clear,
-        scale: clear ? 0 : at("scale"),
-        twist: clear ? 0 : at("twist"),
-        centerX,
-        centerY,
-      }
-    }
-    case "kaleidoscope": {
-      const random = seededRandom(`${seed}:kaleidoscope`)
-      return {
-        kind: "kaleidoscope",
-        colour: clear,
-        amount: clear ? 0 : at("amount"),
-        segments: clear ? values.segments[STAGE_COUNT - 1] : at("segments"),
-        spin: random() * Math.PI * 2,
-        source: random() * Math.PI * 2,
-      }
-    }
-    case "slice-glitch": {
-      const random = seededRandom(`${seed}:slices`)
-      return {
-        kind: "slices",
-        colour: clear,
-        shift: clear ? 0 : at("shift"),
-        // Each band slides between -1 and 1 times `shift`, never by almost nothing.
-        offsets: Array.from({ length: Math.min(MAX_BANDS, fixed("bands")) }, () => {
-          const sign = random() < 0.5 ? -1 : 1
-          return sign * (0.25 + 0.75 * random())
-        }),
-      }
-    }
     case "liquid-warp": {
       const random = seededRandom(`${seed}:liquid`)
       return {
         kind: "liquid",
-        colour: clear,
+        colour: true,
         amplitude: clear ? 0 : at("amplitude"),
         phases: [0, 1, 2, 3].map(() => random() * Math.PI * 2),
       }
     }
-    case "motion-blur":
-      return {
-        kind: "motionBlur",
-        colour: clear,
-        length: clear ? 0 : at("length"),
-        angle: seededAngle(seed, "motion"),
-      }
-    case "mosaic":
-      return { kind: "mosaic", colour: clear, cell: clear ? last("cell") : at("cell") }
   }
-}
-
-/** A seeded angle in radians for one purpose (direction of a blur, an echo...). */
-function seededAngle(seed: string, purpose: string) {
-  return seededRandom(`${seed}:${purpose}`)() * Math.PI * 2
 }
 
 const STAGE_COUNT = 5
@@ -335,7 +276,7 @@ export function mirror(t: number) {
 }
 
 /** Most rings ring lock supports (size of the shader's uniform array). */
-export const MAX_RINGS = 16
+export const MAX_RINGS = 48
 /** Most keyholes (size of the shader's uniform array). */
 export const MAX_HOLES = 32
 /** Most slice-glitch bands (size of the shader's uniform array). */

@@ -3,58 +3,30 @@
 Each style has one **intensity knob** (the test panel slider) and per-stage values in
 `content/settings.json` under `styles.<id>`. Arrays have five entries, stage 1
 (hardest) to stage 5 (easiest); single-entry arrays are fixed at every stage. Every
-distorted stage is greyscale; only the clear image (stage 0) is in colour.
+stage keeps the photo's original colors, including the clear image (stage 0).
 
-Styles come in three groups, defined in `lib/gl/scene.ts`:
+Every style is in one list, `ALL_STYLES` in `lib/gl/scene.ts`, and that is the list
+the test panel shows. A style can be assigned in `images.json` only when it is also
+a `StyleId` in `lib/content.ts`.
 
-| Group | Constant | Can be used in `images.json`? |
-| --- | --- | --- |
-| Rotation (v1) | `ROTATION_STYLES` | Yes, these are the only daily styles |
-| Candidates (from the brief) | `CANDIDATE_STYLES` | No, test panel only |
-| Experiments (outside list) | `EXPERIMENT_STYLES` | No, test panel only |
+**Removed:** Darkness / spotlight, two-tone, rotated tiles, shattered glass, melt, static, negative, RGB split, halftone, ordered dither, ASCII, scanlines, edges only, fisheye, tunnel, kaleidoscope, slice glitch, motion blur, and mosaic.
 
-`ALL_STYLES` is all three, in that order. A style only joins the rotation by moving
-it into `ROTATION_STYLES` *and* `StyleId` in `lib/content.ts`.
+## Styles
 
-**Removed:** Darkness / spotlight, two-tone, rotated tiles, shattered glass, melt, static, negative, RGB split, halftone, ordered dither, ASCII, scanlines, and edges only.
-
-## Rotation (v1)
-
-Values come from the brief's "v1 starting values" and haven't been changed.
-
-| Id | What you see | Knob | Other keys |
-| --- | --- | --- | --- |
-| `tile-shuffle` | 8×8 tiles out of place, some rotated on stages 1–2 | `outOfPlace` | `rotated` |
-| `hidden-tiles` | Black squares; the visible set only grows | `visible` | |
-| `ripple` | Sine displacement in both directions; still when settled | `amplitude` | `waves` |
-
-## Candidates
-
-Values are calibrated with `scripts/measure-difficulty.mjs` (see below) so each
-stage reveals about the same amount more. Current numbers are in `content/settings.json`.
+Tile shuffle, hidden tiles, and ripple still use the brief's v1 starting values.
+The others are tuned in `content/settings.json`.
 
 | Id | What you see | Knob | Other keys | Scene kind |
 | --- | --- | --- | --- | --- |
-| `ring-lock` | Concentric rings each turned like a combination lock | `turn` | `rings` (fixed) | `rings` |
-| `shredder` | Thin vertical strips shuffled | `outOfPlace` | `strips` (fixed) | `strips` |
-| `keyholes` | Black with round holes that grow and multiply | `holes` | `radius` | `keyholes` |
-| `fisheye` | Lens bulge centred across the image from the subject | `strength` | | `fisheye` |
-| `tunnel` | The image repeats into itself, each copy turned | `scale` | `twist` | `tunnel` |
-| `kaleidoscope` | Mirrored wedges mixed with the plain image | `amount` | `segments` | `kaleidoscope` |
-
-Fisheye and tunnel use the image's optional `focus` (`[x, y]` in `images.json`) and
-centre themselves on the opposite side, or in a seeded direction when there's no focus.
-
-## Experiments
-
-From an outside list of distortion ideas. Fisheye is already a candidate, so it isn't repeated.
-
-| Id | What you see | Knob | Other keys | Scene kind |
-| --- | --- | --- | --- | --- |
-| `slice-glitch` | Horizontal bands slid sideways, wrapping around | `shift` | `bands` (fixed) | `slices` |
+| `tile-shuffle` | 8×8 tiles out of place, some rotated on stages 1–2 | `outOfPlace` | `rotated` | `tiles` |
+| `hidden-tiles` | Black squares; the visible set only grows | `visible` | | `hidden` |
+| `ripple` | Sine displacement in both directions; still when settled | `amplitude` | `waves` | `ripple` |
+| `ring-lock` | 48 thin concentric rings, each turned like a combination lock | `turn` | `rings` (fixed) | `rings` |
+| `shredder` | 64 thin vertical strips, shuffled. Every other strip can be upside down | `outOfPlace` | `strips` (fixed), `upsideDown` | `strips` |
+| `keyholes` | Black, with a few small round holes | `holes` | `radius` | `keyholes` |
 | `liquid-warp` | Nested sine waves bend the image like heat haze | `amplitude` | | `liquid` |
-| `motion-blur` | Directional blur along a seeded angle | `length` | | `motionBlur` |
-| `mosaic` | Big flat blocks | `cell` | | `mosaic` |
+
+`upsideDown` is the share of those alternating strips that are flipped. Stage 1 flips all of them, so neighbouring frames run back and forth. Later stages unflip from the end. The clear image is upright.
 
 Sizes like `cell`, `offset`, `length` and `amplitude` are shares of the image side,
 so they look the same at every canvas size.
@@ -78,8 +50,6 @@ node scripts/measure-difficulty.mjs --calibrate  # plus suggested evenly spaced 
   script). It walks a dial between them and picks stage values whose scores
   step evenly from 0.1 (stage 1) to 0.7 (stage 5). When a style can't get that
   hard within a sensible range, stage 1 sits at its hardest and the steps stay even.
-- **Inherently easy at stage 1:** motion blur keeps the gist even at its strongest
-  sensible setting (scores around 0.5).
 - The v1 rotation styles keep the brief's values. On this score, hidden tiles ends hard (0.43).
 
 ## Tuning notes
@@ -94,7 +64,7 @@ node scripts/measure-difficulty.mjs --calibrate  # plus suggested evenly spaced 
 ## Adding a style
 
 1. **`lib/gl/scene.ts`**
-   - Add the id to a group constant (`CANDIDATE_STYLES` or `EXPERIMENT_STYLES`).
+   - Add the id to `ALL_STYLES`.
    - Add a label to `STYLE_LABELS` and a knob to `KNOBS`.
    - Add a `Scene` variant and a `buildScene` case. Use `seededRandom` with a new
      purpose string for any randomness; make stage 0 the plain image.

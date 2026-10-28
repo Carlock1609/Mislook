@@ -12,19 +12,13 @@
 import { createAnimator, type Renderer, type ShowOptions, TRANSITION_MS } from "@/lib/gl/renderer"
 import {
   easeInOut,
-  fisheyeSource,
   liquidSource,
   type LumaAt,
-  mosaicValue,
-  motionBlurValue,
-  sliceSource,
-  kaleidoscopeSource,
   LUMA,
   mirror,
   ringSource,
   rippleOffset,
   type Scene,
-  tunnelSource,
 } from "@/lib/gl/scene"
 
 /** A new size × size canvas that isn't in the document. */
@@ -160,7 +154,12 @@ function drawScene(image: HTMLImageElement, scene: Scene, size: number) {
       const n = scene.slots.length
       const cell = size / n
       scene.slots.forEach((slot, i) => {
-        ctx.drawImage(image, (i * iw) / n, 0, iw / n, ih, slot * cell, 0, cell, size)
+        const down = scene.up[i] < 0
+        ctx.save()
+        ctx.translate(slot * cell, down ? size : 0)
+        if (down) ctx.scale(1, -1)
+        ctx.drawImage(image, (i * iw) / n, 0, iw / n, ih, 0, 0, cell, size)
+        ctx.restore()
       })
       grey()
       break
@@ -179,50 +178,16 @@ function drawScene(image: HTMLImageElement, scene: Scene, size: number) {
       grey()
       break
     }
-    case "rings":
-    case "fisheye":
-    case "tunnel":
-    case "kaleidoscope": {
+    case "rings": {
       ctx.drawImage(image, 0, 0, size, size)
-      // Every clear stage is the plain image.
-      if (scene.colour) break
-      remap(ctx, size, false, (u, v) => {
-        switch (scene.kind) {
-          case "rings":
-            return ringSource(u, v, scene.angles)
-          case "fisheye":
-            return fisheyeSource(u, v, scene.strength, scene.centerX, scene.centerY)
-          case "tunnel":
-            return tunnelSource(u, v, scene.scale, scene.twist, scene.centerX, scene.centerY)
-          case "kaleidoscope":
-            return kaleidoscopeSource(u, v, scene.amount, scene.segments, scene.spin, scene.source)
-        }
-      })
+      if (scene.angles.every((angle) => angle === 0)) break
+      remap(ctx, size, scene.colour, (u, v) => ringSource(u, v, scene.angles))
       break
     }
-    case "slices":
     case "liquid": {
       ctx.drawImage(image, 0, 0, size, size)
-      if (scene.colour) break
-      remap(ctx, size, false, (u, v) =>
-        scene.kind === "slices"
-          ? sliceSource(u, v, scene.shift, scene.offsets)
-          : liquidSource(u, v, scene.amplitude, scene.phases),
-      )
-      break
-    }
-    case "motionBlur":
-    case "mosaic": {
-      ctx.drawImage(image, 0, 0, size, size)
-      if (scene.colour) break
-      shade(ctx, size, (_l, u, v, lumaAt) => {
-        switch (scene.kind) {
-          case "motionBlur":
-            return motionBlurValue(u, v, scene.length, scene.angle, lumaAt)
-          case "mosaic":
-            return mosaicValue(u, v, scene.cell, lumaAt)
-        }
-      })
+      if (scene.amplitude === 0) break
+      remap(ctx, size, scene.colour, (u, v) => liquidSource(u, v, scene.amplitude, scene.phases))
       break
     }
   }
