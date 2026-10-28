@@ -9,7 +9,7 @@ import HowToPlay from "@/components/HowToPlay"
 import Result from "@/components/result/Result"
 import SiteStats, { type Stats } from "@/components/SiteStats"
 import { imageSrc, images, type PuzzleImage, settings } from "@/lib/content"
-import { dateForDayIndex, dayIndexFor, imageIndexFor } from "@/lib/daily"
+import { dateForDayIndex, dayIndexFor, imageIndexFor, puzzleNumberFor, readDayRequest } from "@/lib/daily"
 import { TRANSITION_MS } from "@/lib/gl/renderer"
 import { type AnyStyleId, KNOBS, type StageView, type Tuning } from "@/lib/gl/scene"
 import { initialRound, reduceRound, type RoundResult, roundElapsed, roundResult } from "@/lib/reduce"
@@ -20,35 +20,76 @@ import { loadStats } from "@/lib/stats"
 
 /** Today, as the client works it out: before `DAY_0`, or the puzzle number and image. */
 type Day =
-  | { comingSoon: true }
-  | { comingSoon: false; number: number; date: string; imageIndex: number; image: PuzzleImage; preview: boolean }
+  | { comingSoon: true; testing: boolean }
+  | { comingSoon: false; number: number; date: string; imageIndex: number; image: PuzzleImage; preview: boolean; testing: boolean }
 
 // Resolved once on the client: the page is static, so the date can't come from the server.
 let resolvedDay: Day | undefined
-/** Today's day (cached). In development `?day=N` previews puzzle number N. */
-function getDay(): Day {
+/** "checking" while `/api/test` confirms a `?test=` link. No link is "off" immediately. */
+let testAccess: "checking" | "on" | "off" = "checking"
+const testListeners = new Set<() => void>()
+
+function testKeyFromUrl() {
+  return new URLSearchParams(window.location.search).get("test")
+}
+
+/** Whether this page may skip the daily lock. A link with no key is never testing. */
+function testAccessNow(): "checking" | "on" | "off" {
+  if (!testKeyFromUrl()) return "off"
+  return testAccess === "checking" ? "checking" : testAccess
+}
+
+function subscribeTest(listener: () => void) {
+  testListeners.add(listener)
+  return () => testListeners.delete(listener)
+}
+
+function publishTest(next: "on" | "off") {
+  testAccess = next
+  resolvedDay = undefined
+  restoredResult = undefined
+  testListeners.forEach((listener) => listener())
+}
+
+/** Today's day (cached). A confirmed test link skips the daily lock. In that mode, or in development, `?day=N` previews a photo that exists. */
+function getDay(): Day | null {
+  if (testAccessNow() === "checking") return null
   if (resolvedDay) return resolvedDay
   let dayIndex = dayIndexFor(Date.now(), settings.DAY_0, settings.timeZone)
   let preview = false
-  if (process.env.NODE_ENV === "development") {
+  const testing = testAccessNow() === "on"
+  if (testing || process.env.NODE_ENV === "development") {
     const param = new URLSearchParams(window.location.search).get("day")
-    if (param !== null && /^-?\d+$/.test(param)) {
+    if (readDayRequest(param, images.length) === "playable") {
       dayIndex = Number(param) - 1
       preview = true
     }
   }
+  // A test link never reads or writes today's saved result, even without `?day=`.
+  if (testing) preview = true
+  const imageIndex = imageIndexFor(Math.max(0, dayIndex), images.length)
   resolvedDay =
     dayIndex < 0
-      ? { comingSoon: true }
+      ? { comingSoon: true, testing }
       : {
           comingSoon: false,
-          number: dayIndex + 1,
+          number: puzzleNumberFor(dayIndex, images.length),
           date: dateForDayIndex(dayIndex, settings.DAY_0),
-          imageIndex: imageIndexFor(dayIndex, images.length),
-          image: images[imageIndexFor(dayIndex, images.length)],
+          imageIndex,
+          image: images[imageIndex],
           preview,
+          testing,
         }
   return resolvedDay
+}
+
+/** Drops a `?day=` that does not name a photo, leaving the address on the real day. */
+function dropMissingDayParam() {
+  const url = new URL(window.location.href)
+  if (readDayRequest(url.searchParams.get("day"), images.length) !== "missing") return
+  url.searchParams.delete("day")
+  const next = `${url.pathname}${url.search}${url.hash}`
+  window.history.replaceState(window.history.state, "", next)
 }
 
 // Cached like `resolvedDay`: getSnapshot must return the same reference each call.
@@ -57,17 +98,18 @@ let restoredResult: RoundResult | null | undefined
 function getRestoredResult(): RoundResult | null {
   if (restoredResult !== undefined) return restoredResult
   const day = getDay()
+  if (!day) return null
   restoredResult = day.comingSoon || day.preview ? null : loadDayResult(day.date)
   return restoredResult
 }
 
-/** useSyncExternalStore subscriber for a value that never changes after load. */
-const noSubscribe = () => () => {}
-
 /** Which screen is showing. Play never changes the URL. */
 type Phase = "howToPlay" | "game" | "result"
 
-const SHOW_TEST_PANEL = process.env.NODE_ENV === "development"
+/** The TEST tab is on locally, and on the live site when the page was opened with the test link. */
+function showTestPanel(day: Day | null) {
+  return process.env.NODE_ENV === "development" || day?.testing === true
+}
 /** Screen change: fade out, swap, fade in. The timer waits until the game fade finishes. */
 const FADE_MS = 200
 
@@ -79,8 +121,8 @@ type TestView = { imageIndex?: number; style?: AnyStyleId; stage?: StageView }
  * between How to play, Game and Result.
  */
 export default function Mislook() {
-  const day = useSyncExternalStore(noSubscribe, getDay, () => null)
-  const restored = useSyncExternalStore(noSubscribe, getRestoredResult, () => null)
+  const day = useSyncExternalStore(subscribeTest, getDay, () => null)
+  const restored = useSyncExternalStore(subscribeTest, getRestoredResult, () => null)
   const [phase, setPhase] = useState<Phase>("howToPlay")
   const [motion, setMotion] = useState<"out" | "in" | null>(null)
   /** True while Play's fade is running, so the clock doesn't start under the landing screen. */
@@ -112,13 +154,36 @@ export default function Mislook() {
   }
 
   useEffect(() => () => timers.current.forEach((id) => window.clearTimeout(id)), [])
+  useEffect(() => dropMissingDayParam(), [])
+  // A `?test=` link is checked on the server so the key is not in the page.
   useEffect(() => {
+    const key = testKeyFromUrl()
+    if (!key) return
     let cancelled = false
-    loadStats().then((s) => !cancelled && setSiteStats(s))
+    fetch("/api/test", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ key }),
+    })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((body: { testing?: boolean } | null) => {
+        if (!cancelled) publishTest(body?.testing ? "on" : "off")
+      })
+      .catch(() => {
+        if (!cancelled) publishTest("off")
+      })
     return () => {
       cancelled = true
     }
   }, [])
+  useEffect(() => {
+    if (testAccessNow() === "checking") return
+    let cancelled = false
+    loadStats(day?.testing === true).then((s) => !cancelled && setSiteStats(s))
+    return () => {
+      cancelled = true
+    }
+  }, [day])
 
   // Live clock for the time bonus and points-available, once per second while playing.
   useEffect(() => {
@@ -191,7 +256,7 @@ export default function Mislook() {
   /** Checks a guess: a match wins, a miss locks Guess and costs the wrong-guess penalty. */
   const guess = (text: string) => {
     if (!puzzle) return
-    dispatch({ type: "guess", text, accept: puzzle.image.accept, now: Date.now() })
+    dispatch({ type: "guess", text, accept: shownImage.accept, now: Date.now() })
   }
 
   /** Moves to the next stage, or ends the round as a miss on stage 5. */
@@ -255,7 +320,7 @@ export default function Mislook() {
             onReveal={reveal}
             stats={stats}
             testPanel={
-              SHOW_TEST_PANEL && (
+              showTestPanel(day) && (
                 <TestPanel
                   imageIndex={shownImageIndex}
                   imageCount={images.length}
@@ -278,7 +343,7 @@ export default function Mislook() {
           <Result
             number={puzzle.number}
             view={view(result.stage as StageView)}
-            answer={puzzle.image.title}
+            answer={shownImage.title}
             result={result}
             onCopy={copyResult}
             stats={stats}

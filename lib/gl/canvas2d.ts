@@ -180,14 +180,14 @@ function drawScene(image: HTMLImageElement, scene: Scene, size: number) {
     }
     case "rings": {
       ctx.drawImage(image, 0, 0, size, size)
-      if (scene.colour) break
-      remap(ctx, size, false, (u, v) => ringSource(u, v, scene.angles))
+      if (scene.angles.every((angle) => angle === 0)) break
+      remap(ctx, size, scene.colour, (u, v) => ringSource(u, v, scene.angles))
       break
     }
     case "liquid": {
       ctx.drawImage(image, 0, 0, size, size)
-      if (scene.colour) break
-      remap(ctx, size, false, (u, v) => liquidSource(u, v, scene.amplitude, scene.phases))
+      if (scene.amplitude === 0) break
+      remap(ctx, size, scene.colour, (u, v) => liquidSource(u, v, scene.amplitude, scene.phases))
       break
     }
   }

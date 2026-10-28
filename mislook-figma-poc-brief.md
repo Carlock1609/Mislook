@@ -34,7 +34,7 @@ The UI from round 2 is approved: landing, game panel, result, and the Play trans
 ## The game in 30 seconds
 
 - Every day, everyone gets the same image.
-- It starts heavily distorted (shuffled tiles, hidden tiles, crushed to two tones, or rippled) and in greyscale. There are five stages, each clearer than the last.
+- It starts heavily distorted (shuffled tiles, hidden tiles, crushed to two tones, or rippled), in the photo's own colors. There are five stages, each clearer than the last.
 - At each stage the player either **Guesses** (one try per stage) or **Reveals** the next stage.
 - Earlier and faster means more points; wrong guesses cost points.
 - At the end they see the clear image, their score, and a result they can copy into a group text.
@@ -57,7 +57,7 @@ From the reference image:
 
 - **Background:** a living op-art field that slowly moves. It must calm down and dim during play.
 - **Transitions:** where it gets wild (fold, tunnel, slice, swirl, RGB split).
-- **The game image itself:** settles each stage into a clean, fair, greyscale still of that day’s style. It’s a puzzle first.
+- **The game image itself:** settles each stage into a clean, fair, full-color still of that day’s style. It’s a puzzle first.
 - **Text:** always sits on a calm surface, never directly on moving op-art.
 
 **Tone: edgy, clean, dark, with very little colour.** Take the *geometry* from the references, not the clutter: lots of black negative space; hard, crisp, thin lines; precise patterns, never noisy. Do not draw floating eyes or spheres. Use spirals, rings, checkerboards, stripes, slices, and glitch blocks only.
@@ -109,7 +109,7 @@ Use a placeholder image (any photo of one obvious subject) and dummy text.
 **Rules for every style:**
 
 - One style per image. It gets weaker each stage; it never switches style mid-round.
-- Stages 1–5 are always **greyscale**. Colour appears only with the clear image on the result.
+- Stages 1–5 and the result keep the photo's **original colors**.
 - **Much harder than round 2.** Stage 1 should be close to impossible. Most players should solve at stage 3–4, and stage 5 should still take a moment.
 - No pixelation, blur, slice/echo, stripe overlay, halftone, edges only or swirl.
 
@@ -231,7 +231,7 @@ The POC is done when:
 - screens and states 1–12 exist at mobile and desktop sizes;
 - the link preview card and the four v1 style sheets exist;
 - the test panel switches image, style, stage and intensity;
-- every style is greyscale until the result and clearly harder than round 2;
+- every style keeps the photo's colors and is clearly harder than round 2;
 - the round-2 fixes in the Status section are done;
 - the site stats line appears on every screen without crowding the game;
 - every motion has a prototype or storyboard with timings, plus a reduced-motion version;

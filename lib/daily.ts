@@ -56,6 +56,19 @@ export function imageIndexFor(dayIndex: number, count: number) {
   return ((dayIndex % count) + count) % count
 }
 
+/** The puzzle number shown for a calendar day. It restarts at 1 with the first image. */
+export function puzzleNumberFor(dayIndex: number, count: number) {
+  return imageIndexFor(dayIndex, count) + 1
+}
+
+/** What `?day=` is asking for. Only 1 through `count` names a photo. */
+export function readDayRequest(param: string | null, count: number): "absent" | "playable" | "missing" {
+  if (param === null) return "absent"
+  if (!/^-?\d+$/.test(param) || count < 1) return "missing"
+  const number = Number(param)
+  return number >= 1 && number <= count ? "playable" : "missing"
+}
+
 /** Milliseconds the zone's wall clock is ahead of UTC at `instant` (negative west of UTC). */
 function zoneOffset(instant: number, timeZone: string) {
   const p = zonedParts(instant, timeZone)

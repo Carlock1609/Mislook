@@ -177,7 +177,6 @@ body {
   0% {
     opacity: 0;
     transform: scale(1.14) skewX(5deg);
-    filter: grayscale(1) contrast(3);
   }
   58% {
     opacity: 1;
@@ -185,7 +184,6 @@ body {
   }
   100% {
     transform: scale(1);
-    filter: none;
   }
 }
 

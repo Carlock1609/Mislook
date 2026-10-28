@@ -6,6 +6,8 @@ import {
   formatMss,
   imageIndexFor,
   nextZonedMidnight,
+  puzzleNumberFor,
+  readDayRequest,
   zonedDateString,
 } from "@/lib/daily"
 
@@ -41,6 +43,30 @@ describe("imageIndexFor", () => {
     expect(imageIndexFor(23, 10)).toBe(3)
   })
   it("is never negative", () => expect(imageIndexFor(-1, 10)).toBe(9))
+})
+
+describe("puzzleNumberFor", () => {
+  it("starts at 1 and returns to day 1 after the last image", () => {
+    expect(puzzleNumberFor(0, 10)).toBe(1)
+    expect(puzzleNumberFor(9, 10)).toBe(10)
+    expect(puzzleNumberFor(10, 10)).toBe(1)
+    expect(puzzleNumberFor(23, 10)).toBe(4)
+  })
+})
+
+describe("readDayRequest", () => {
+  it("treats a missing param as no request", () => expect(readDayRequest(null, 10)).toBe("absent"))
+  it("accepts a day that has a photo", () => {
+    expect(readDayRequest("1", 10)).toBe("playable")
+    expect(readDayRequest("10", 10)).toBe("playable")
+  })
+  it("rejects a day with no photo", () => {
+    expect(readDayRequest("0", 10)).toBe("missing")
+    expect(readDayRequest("11", 10)).toBe("missing")
+    expect(readDayRequest("-3", 10)).toBe("missing")
+    expect(readDayRequest("nope", 10)).toBe("missing")
+    expect(readDayRequest("", 10)).toBe("missing")
+  })
 })
 
 describe("zonedDateString", () => {

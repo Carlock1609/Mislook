@@ -1,8 +1,13 @@
 # The TEST panel
 
 `components/dev/TestPanel.tsx`, rendered by `components/Mislook.tsx` on the game
-screen **only when `NODE_ENV` is `development`**. It changes what the image shows,
-never the round, timer, score or daily lock.
+screen in local development, and on the live site when the URL contains
+`?test=` set to the server environment variable `MISLOOK_TEST_KEY`. The key is
+not in the page. The test link skips the daily lock, so a finished day can be
+played again, and it does not write a new result. `?day=N` works on that link
+the same way it does locally. Cycling the image switches which keywords a guess
+must match, and the result names that photo. The timer, score, and daily lock
+stay on the real day. Changing the style does not change the keywords.
 
 ## Opening it
 

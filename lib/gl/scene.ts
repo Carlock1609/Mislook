@@ -80,9 +80,9 @@ export type Hole = { x: number; y: number; r: number }
 export type Shard = { tri: number[]; pivotX: number; pivotY: number; dx: number; dy: number; rot: number }
 
 /**
- * Everything a renderer needs to draw one settled stage. `colour` is true only
- * for the clear image; every distorted stage is greyscale. Transitions
- * interpolate between two scenes of the same `kind`.
+ * Everything a renderer needs to draw one settled stage. `colour` stays true:
+ * every stage keeps the photo's own colors. Transitions interpolate between
+ * two scenes of the same `kind`.
  */
 export type Scene = { colour: boolean } & (
   | { kind: "tiles"; grid: number; tiles: Tile[] }
@@ -125,7 +125,7 @@ export function buildScene({ style, stage, seed, tuning }: SceneInput): Scene {
     case "tile-shuffle":
       return {
         kind: "tiles",
-        colour: clear,
+        colour: true,
         grid,
         tiles: tileLayout(seed, grid, clear ? 0 : at("outOfPlace"), clear ? 0 : at("rotated")),
       }
@@ -134,7 +134,7 @@ export function buildScene({ style, stage, seed, tuning }: SceneInput): Scene {
       const visible = clear ? count : Math.round(at("visible") * count)
       return {
         kind: "hidden",
-        colour: clear,
+        colour: true,
         grid,
         hidden: rank.map((r) => r >= visible),
         // Newly opened tiles flip in a seeded, staggered order.
@@ -145,7 +145,7 @@ export function buildScene({ style, stage, seed, tuning }: SceneInput): Scene {
       const random = seededRandom(`${seed}:ripple`)
       return {
         kind: "ripple",
-        colour: clear,
+        colour: true,
         amplitude: clear ? 0 : at("amplitude"),
         waves: clear ? values.waves[STAGE_COUNT - 1] : at("waves"),
         phaseX: random() * Math.PI * 2,
@@ -157,7 +157,7 @@ export function buildScene({ style, stage, seed, tuning }: SceneInput): Scene {
       const turn = clear ? 0 : at("turn")
       return {
         kind: "rings",
-        colour: clear,
+        colour: true,
         angles: Array.from({ length: Math.min(MAX_RINGS, fixed("rings")) }, () => {
           const sign = random() < 0.5 ? -1 : 1
           return sign * (0.35 + 0.65 * random()) * Math.PI * turn
@@ -176,7 +176,7 @@ export function buildScene({ style, stage, seed, tuning }: SceneInput): Scene {
       for (let i = 0; i < flipped; i++) up[downs[i]] = -1
       return {
         kind: "strips",
-        colour: clear,
+        colour: true,
         slots: cycleCells(order, clear ? 0 : at("outOfPlace")),
         up,
       }
@@ -186,7 +186,7 @@ export function buildScene({ style, stage, seed, tuning }: SceneInput): Scene {
       const radius = clear ? 1.5 : at("radius")
       return {
         kind: "keyholes",
-        colour: clear,
+        colour: true,
         holes: holeLayout(seed).map((h, k) => ({
           x: h.x,
           y: h.y,
@@ -198,7 +198,7 @@ export function buildScene({ style, stage, seed, tuning }: SceneInput): Scene {
       const random = seededRandom(`${seed}:liquid`)
       return {
         kind: "liquid",
-        colour: clear,
+        colour: true,
         amplitude: clear ? 0 : at("amplitude"),
         phases: [0, 1, 2, 3].map(() => random() * Math.PI * 2),
       }

@@ -5,8 +5,8 @@
  * 1. **Style pass** into an offscreen framebuffer: `drawStyle` draws the scene
  *    (or the in-between of two scenes during a transition).
  * 2. **Post pass** to the screen: glitch slices and RGB split while a
- *    transition plays, a crossfade when the style kind changes, and greyscale
- *    for every stage except the clear image.
+ *    transition plays, and a crossfade when the style kind changes. The photo
+ *    stays in its own colors at every stage.
  *
  * Shader sources live in `shaders.ts`; the per-stage maths in `scene.ts`.
  */

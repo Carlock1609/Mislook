@@ -83,12 +83,11 @@ Visiting again after finishing today goes straight to the result state.
 - A new image every day at 00:00 in America/Los_Angeles (Pacific time, including daylight saving). Everyone gets the same image for that Pacific date.
 - `DAY_0` is the first deploy date, in `content/settings.json`.
 - `dayIndex` is the number of Pacific midnights from `DAY_0` to today. On `DAY_0`, `dayIndex` is 0. Before `DAY_0`, `dayIndex` is negative.
-- The number in the UI and in share text is `dayIndex + 1` (`#1` on `DAY_0`).
-- The image is `images[dayIndex % images.length]`, using a non-negative modulo. Index 0 is the first object in `content/images.json`. The displayed number does not loop.
+- The number in the UI and in share text is the place in the image list, starting at `#1` on `DAY_0`. After the last image, the next day is `#1` again and uses the first image. The calendar date used for the lock and the share line does not restart.
 - Before `DAY_0`, select no image and show Coming soon.
 - If the page is left open past midnight, the round in progress finishes on the old day’s image and saves that date.
 - Development only: a small **test panel** in the top-left corner has three controls: an **image** button that cycles through every image in `images.json`, a **style** button that cycles through every distortion style (including ones not yet in rotation), **stage** buttons for 1–5 and the clear image, and an **intensity** slider for tuning the current style and stage. It is hidden in production builds and never affects the daily lock or scoring.
-- Development only: `?day=N` sets the displayed number (`?day=12` shows `#12` and `dayIndex` 11). It does not read or write the daily lock. `?day` less than 1 shows Coming soon. Play state never changes the URL. `?day` is the only query the page reads.
+- Development only: `?day=N` previews puzzle number N when that photo exists (`?day=1` is the first image). It does not read or write the daily lock. A `?day` that is not an integer from 1 through the number of images is removed from the URL, and the page shows the real current day. Play state never changes the URL. `?day` is the only query the page reads.
 
 ---
 
@@ -122,7 +121,7 @@ Each style has one *intensity* knob that goes from hardest (stage 1) to easiest 
 - Most players solve at stage 3 or 4.
 - Stage 5 still takes a moment.
 
-**Greyscale until the end:** stages 1–5 are always greyscale, whatever the style. Colour gives away too much, so it appears only with the clear image on the result.
+**Color throughout:** stages 1–5 and the clear image all keep the photo's original colors.
 
 #### Verdicts from the POC
 
@@ -230,6 +229,7 @@ Normalization, applied to the guess and every accepted answer:
 
 - Lowercase
 - Strip accents
+- Delete apostrophes, leaving no space (`Peach's` and `Peachs` match)
 - `&` → `and`
 - Runs of non-alphanumeric characters → single space
 - Trim

@@ -5,7 +5,7 @@
  *   flag), so refreshes and Play don't inflate it.
  * - A **visitor** is a random anonymous id kept in `localStorage`. Clearing
  *   storage or switching devices counts as a new visitor; that's accepted.
- * - Visits from localhost and `?day` previews are never counted; those only read.
+ * - Visits from localhost, `?day` previews, and a confirmed test link are never counted; those only read.
  */
 
 import type { Stats } from "@/components/SiteStats"
@@ -40,14 +40,15 @@ function visitorId() {
   return id
 }
 
-/** True when this page view must not be counted: local development or a `?day` preview. */
-function isPreview() {
+/** True when this page view must not be counted: local development, a `?day` preview, or a confirmed test link. */
+function isPreview(testing: boolean) {
   const { hostname, search } = window.location
   return (
     hostname === "localhost" ||
     hostname === "127.0.0.1" ||
     hostname === "[::1]" ||
-    new URLSearchParams(search).has("day")
+    new URLSearchParams(search).has("day") ||
+    testing
   )
 }
 
@@ -58,13 +59,13 @@ let pending: Promise<Stats | null> | null = null
  * The request is made once per page load; later calls share its result.
  * @returns The totals, or null if the request failed (the stats line then hides).
  */
-export function loadStats(): Promise<Stats | null> {
-  pending ??= request()
+export function loadStats(testing = false): Promise<Stats | null> {
+  pending ??= request(testing)
   return pending
 }
 
-async function request(): Promise<Stats | null> {
-  const count = !isPreview() && read(() => sessionStorage, COUNTED_KEY) !== "1"
+async function request(testing: boolean): Promise<Stats | null> {
+  const count = !isPreview(testing) && read(() => sessionStorage, COUNTED_KEY) !== "1"
   if (count) {
     const counted = await fetchTotals({
       method: "POST",

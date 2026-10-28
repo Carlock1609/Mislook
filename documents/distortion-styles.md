@@ -3,7 +3,7 @@
 Each style has one **intensity knob** (the test panel slider) and per-stage values in
 `content/settings.json` under `styles.<id>`. Arrays have five entries, stage 1
 (hardest) to stage 5 (easiest); single-entry arrays are fixed at every stage. Every
-distorted stage is greyscale; only the clear image (stage 0) is in colour.
+stage keeps the photo's original colors, including the clear image (stage 0).
 
 Every style is in one list, `ALL_STYLES` in `lib/gl/scene.ts`, and that is the list
 the test panel shows. A style can be assigned in `images.json` only when it is also

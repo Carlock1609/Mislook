@@ -36,8 +36,8 @@ const chip =
   "min-h-7 cursor-pointer border border-line bg-surface px-2 text-left text-micro text-ink hover:border-accent hover:text-accent disabled:cursor-not-allowed disabled:opacity-40"
 
 /**
- * Development-only distortion tuning panel. It changes what the image shows,
- * never the round, timer, score or daily lock.
+ * Distortion tuning panel. Cycling the image also switches which keywords a
+ * guess must match. The timer, score, and daily lock stay on the real day.
  *
  * Collapsed to a small "TEST" tab on the left edge by default so it doesn't
  * cover the game; the open/closed state is remembered per browser.

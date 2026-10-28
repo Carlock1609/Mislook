@@ -26,9 +26,9 @@ Everything is in `lib/gl/`.
 
 ### Scenes
 
-A `Scene` is a plain object: a `kind` (which drawing routine), `colour` (true only
-for the clear stage 0), and the numbers that routine needs: tile positions, ring
-angles, a blur length and so on. Rules:
+A `Scene` is a plain object: a `kind` (which drawing routine), `colour` (always
+true, so the photo keeps its own colors), and the numbers that routine needs:
+tile positions, ring angles, a blur length and so on. Rules:
 
 - **Stage 1 is hardest, stage 5 easiest, stage 0 is the clear colour image.**
 - Randomness only comes from `seededRandom(seed + ":" + purpose)`. Each style
@@ -65,7 +65,7 @@ Each frame is two passes:
 2. **Post pass** to the screen (`POST` program): glitch slices and an RGB split
    while a transition plays (the pattern changes only 3 times per transition,
    never per frame), a crossfade when the style kind changes or motion is
-   reduced, and greyscale for every stage except the clear image.
+   reduced. The photo stays in its own colors at every stage.
 
 Details worth knowing:
 
