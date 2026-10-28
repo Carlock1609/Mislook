@@ -9,33 +9,21 @@
  * sizes but only runs once per stage change.
  */
 
-import { GLYPH_PX, glyphAtlas } from "@/lib/gl/glyphs"
 import { createAnimator, type Renderer, type ShowOptions, TRANSITION_MS } from "@/lib/gl/renderer"
 import {
-  asciiCell,
-  ditherValue,
-  echoValue,
-  edgeValue,
   easeInOut,
   fisheyeSource,
-  halftoneValue,
   liquidSource,
   type LumaAt,
   mosaicValue,
   motionBlurValue,
-  scanlineValue,
   sliceSource,
   kaleidoscopeSource,
   LUMA,
-  meltSource,
   mirror,
-  negate,
-  NOISE_SIZE,
-  posterize,
   ringSource,
   rippleOffset,
   type Scene,
-  staticNoise,
   tunnelSource,
 } from "@/lib/gl/scene"
 
@@ -159,11 +147,6 @@ function drawScene(image: HTMLImageElement, scene: Scene, size: number) {
       })
       break
     }
-    case "twoTone": {
-      ctx.drawImage(image, 0, 0, size, size)
-      if (!scene.colour) shade(ctx, size, (l) => posterize(l, scene.levels, scene.bias))
-      break
-    }
     case "ripple": {
       ctx.drawImage(image, 0, 0, size, size)
       if (scene.colour && scene.amplitude === 0) break
@@ -182,30 +165,6 @@ function drawScene(image: HTMLImageElement, scene: Scene, size: number) {
       grey()
       break
     }
-    case "shards": {
-      // The settled clear image is whole; drawing it shard by shard would leave hairline seams.
-      if (scene.colour) {
-        ctx.drawImage(image, 0, 0, size, size)
-        break
-      }
-      for (const shard of scene.shards) {
-        const t = shard.tri.map((c) => c * size)
-        ctx.save()
-        ctx.translate((shard.pivotX + shard.dx) * size, (shard.pivotY + shard.dy) * size)
-        ctx.rotate(shard.rot)
-        ctx.translate(-shard.pivotX * size, -shard.pivotY * size)
-        ctx.beginPath()
-        ctx.moveTo(t[0], t[1])
-        ctx.lineTo(t[2], t[3])
-        ctx.lineTo(t[4], t[5])
-        ctx.closePath()
-        ctx.clip()
-        ctx.drawImage(image, 0, 0, size, size)
-        ctx.restore()
-      }
-      grey()
-      break
-    }
     case "keyholes": {
       ctx.save()
       ctx.beginPath()
@@ -221,7 +180,6 @@ function drawScene(image: HTMLImageElement, scene: Scene, size: number) {
       break
     }
     case "rings":
-    case "melt":
     case "fisheye":
     case "tunnel":
     case "kaleidoscope": {
@@ -232,8 +190,6 @@ function drawScene(image: HTMLImageElement, scene: Scene, size: number) {
         switch (scene.kind) {
           case "rings":
             return ringSource(u, v, scene.angles)
-          case "melt":
-            return meltSource(u, v, scene.amount, scene.phases)
           case "fisheye":
             return fisheyeSource(u, v, scene.strength, scene.centerX, scene.centerY)
           case "tunnel":
@@ -242,22 +198,6 @@ function drawScene(image: HTMLImageElement, scene: Scene, size: number) {
             return kaleidoscopeSource(u, v, scene.amount, scene.segments, scene.spin, scene.source)
         }
       })
-      break
-    }
-    case "static": {
-      ctx.drawImage(image, 0, 0, size, size)
-      if (scene.colour) break
-      const noise = staticNoise(scene.seed)
-      shade(ctx, size, (l, u, v) => {
-        const n = noise[Math.floor(v * NOISE_SIZE) * NOISE_SIZE + Math.floor(u * NOISE_SIZE)] / 255
-        return l + (n - l) * scene.amount
-      })
-      break
-    }
-    case "negative": {
-      ctx.drawImage(image, 0, 0, size, size)
-      if (scene.colour) break
-      shade(ctx, size, (l) => negate(l, scene.invert, scene.contrast))
       break
     }
     case "slices":
@@ -271,45 +211,12 @@ function drawScene(image: HTMLImageElement, scene: Scene, size: number) {
       )
       break
     }
-    case "ascii": {
-      ctx.drawImage(image, 0, 0, size, size)
-      if (scene.colour) break
-      // One atlas glyph per cell, chosen from the brightness at the cell centre.
-      const { lumaAt } = lumaGrid(ctx, size)
-      const atlas = glyphAtlas()
-      const cells = Math.ceil(1 / scene.cell)
-      const px = scene.cell * size
-      ctx.fillStyle = "#000"
-      ctx.fillRect(0, 0, size, size)
-      for (let y = 0; y < cells; y++) {
-        for (let x = 0; x < cells; x++) {
-          const { glyph } = asciiCell((x + 0.5) * scene.cell, (y + 0.5) * scene.cell, scene.cell, lumaAt)
-          ctx.drawImage(atlas, glyph * GLYPH_PX, 0, GLYPH_PX, GLYPH_PX, x * px, y * px, px, px)
-        }
-      }
-      break
-    }
-    case "echo":
-    case "halftone":
-    case "dither":
-    case "scanlines":
-    case "edges":
     case "motionBlur":
     case "mosaic": {
       ctx.drawImage(image, 0, 0, size, size)
       if (scene.colour) break
-      shade(ctx, size, (l, u, v, lumaAt) => {
+      shade(ctx, size, (_l, u, v, lumaAt) => {
         switch (scene.kind) {
-          case "echo":
-            return echoValue(u, v, scene.offset, scene.angle, lumaAt)
-          case "halftone":
-            return halftoneValue(u, v, scene.cell, lumaAt)
-          case "dither":
-            return ditherValue(u, v, scene.cell, lumaAt)
-          case "scanlines":
-            return scanlineValue(u, v, scene.cover, scene.lines, lumaAt)
-          case "edges":
-            return edgeValue(u, v, scene.threshold, lumaAt)
           case "motionBlur":
             return motionBlurValue(u, v, scene.length, scene.angle, lumaAt)
           case "mosaic":

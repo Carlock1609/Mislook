@@ -2,8 +2,9 @@
  * @file The round as a pure state machine, ready for `useReducer`. No React.
  *
  * Stage 1 is hardest. Each stage allows one guess or Reveal. A wrong guess locks
- * Guess until Reveal. A correct guess wins. A wrong guess or Reveal on the last
- * stage ends the round as a miss. Nothing is accepted while a transition plays.
+ * Guess until Reveal and costs more than leaving the stage without a guess.
+ * A correct guess wins. A wrong guess or Reveal on the last stage ends the round
+ * as a miss. Nothing is accepted while a transition plays.
  */
 
 import { STAGES } from "@/lib/content"
@@ -19,6 +20,8 @@ export type RoundState = {
   /** A wrong guess was made on this stage; only Reveal is allowed. */
   locked: boolean
   wrongGuesses: number
+  /** Stages left with Reveal and no guess. Each costs less than a wrong guess. */
+  skips: number
   /** A transition is playing; Guess and Reveal do nothing. */
   busy: boolean
   /** When the stage-1 image settled (the timer start), or null before that. */
@@ -49,6 +52,7 @@ export const initialRound: RoundState = {
   stage: 1,
   locked: false,
   wrongGuesses: 0,
+  skips: 0,
   busy: false,
   startedAt: null,
   endedAt: null,
@@ -73,10 +77,13 @@ export function reduceRound(state: RoundState, action: RoundAction): RoundState 
       return state.stage === STAGES ? end(wrong, "missed", action.now) : wrong
     }
 
-    case "reveal":
+    case "reveal": {
       if (state.status !== "playing" || state.busy) return state
       if (state.stage === STAGES) return end(state, "missed", action.now)
-      return { ...state, stage: state.stage + 1, locked: false, busy: true }
+      // A wrong guess already cost the larger penalty, so Reveal does not also charge a skip.
+      const skips = state.locked ? state.skips : state.skips + 1
+      return { ...state, stage: state.stage + 1, locked: false, busy: true, skips }
+    }
 
     case "settled":
       return state.busy ? { ...state, busy: false } : state
@@ -101,7 +108,7 @@ export function roundResult(state: RoundState, scoring: Scoring): RoundResult | 
   return {
     won,
     stage: state.stage,
-    score: won ? pointsAvailable(state.stage, elapsed, state.wrongGuesses, scoring) : 0,
+    score: won ? pointsAvailable(state.stage, elapsed, state.wrongGuesses, state.skips, scoring) : 0,
     elapsedSeconds: elapsed,
     wrongGuesses: state.wrongGuesses,
   }

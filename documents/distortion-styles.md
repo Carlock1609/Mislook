@@ -16,7 +16,7 @@ Styles come in three groups, defined in `lib/gl/scene.ts`:
 `ALL_STYLES` is all three, in that order. A style only joins the rotation by moving
 it into `ROTATION_STYLES` *and* `StyleId` in `lib/content.ts`.
 
-**Removed:** Darkness / spotlight (judged and dropped).
+**Removed:** Darkness / spotlight, two-tone, rotated tiles, shattered glass, melt, static, negative, RGB split, halftone, ordered dither, ASCII, scanlines, and edges only.
 
 ## Rotation (v1)
 
@@ -26,7 +26,6 @@ Values come from the brief's "v1 starting values" and haven't been changed.
 | --- | --- | --- | --- |
 | `tile-shuffle` | 8×8 tiles out of place, some rotated on stages 1–2 | `outOfPlace` | `rotated` |
 | `hidden-tiles` | Black squares; the visible set only grows | `visible` | |
-| `two-tone` | Luma posterized into equal bands; stage 1 pushed towards black | `toneLevels` | `blackBias` |
 | `ripple` | Sine displacement in both directions; still when settled | `amplitude` | `waves` |
 
 ## Candidates
@@ -38,14 +37,9 @@ stage reveals about the same amount more. Current numbers are in `content/settin
 | --- | --- | --- | --- | --- |
 | `ring-lock` | Concentric rings each turned like a combination lock | `turn` | `rings` (fixed) | `rings` |
 | `shredder` | Thin vertical strips shuffled | `outOfPlace` | `strips` (fixed) | `strips` |
-| `rotated-tiles` | Tiles turned 90/180/270° in place | `turned` | `grid` (fixed) | `tiles` |
 | `keyholes` | Black with round holes that grow and multiply | `holes` | `radius` | `keyholes` |
-| `shattered-glass` | Radial shards from a seeded impact, nudged and turned | `scatter` | | `shards` |
-| `melt` | Columns drip downward; the top row streaks | `amount` | | `melt` |
-| `static` | Frozen seeded TV static mixed over the image (never flickers) | `amount` | | `static` |
 | `fisheye` | Lens bulge centred across the image from the subject | `strength` | | `fisheye` |
 | `tunnel` | The image repeats into itself, each copy turned | `scale` | `twist` | `tunnel` |
-| `negative` | Inverted tones with squashed contrast | `contrast` | | `negative` |
 | `kaleidoscope` | Mirrored wedges mixed with the plain image | `amount` | `segments` | `kaleidoscope` |
 
 Fisheye and tunnel use the image's optional `focus` (`[x, y]` in `images.json`) and
@@ -53,21 +47,12 @@ centre themselves on the opposite side, or in a seeded direction when there's no
 
 ## Experiments
 
-From an outside list of distortion ideas. "Posterization" is already the
-`two-tone` style and "Fisheye" is already a candidate, so they aren't repeated.
-Because every stage is greyscale, **RGB split** shows as three offset grey copies
-rather than coloured fringes.
+From an outside list of distortion ideas. Fisheye is already a candidate, so it isn't repeated.
 
 | Id | What you see | Knob | Other keys | Scene kind |
 | --- | --- | --- | --- | --- |
-| `rgb-split` | Three offset copies along a seeded direction | `offset` | | `echo` |
 | `slice-glitch` | Horizontal bands slid sideways, wrapping around | `shift` | `bands` (fixed) | `slices` |
 | `liquid-warp` | Nested sine waves bend the image like heat haze | `amplitude` | | `liquid` |
-| `halftone` | White dots on a 45° grid, sized by brightness | `cell` | | `halftone` |
-| `dither` | Big pixels, black or white against a 4×4 Bayer threshold | `cell` | | `dither` |
-| `ascii` | Characters ` .:-=+*#%@` chosen by brightness | `cell` | | `ascii` |
-| `scanlines` | Thick dark bands across each row | `cover` | `lines` (fixed) | `scanlines` |
-| `edges` | Sobel edges only, white on black | `threshold` | | `edges` |
 | `motion-blur` | Directional blur along a seeded angle | `length` | | `motionBlur` |
 | `mosaic` | Big flat blocks | `cell` | | `mosaic` |
 
@@ -93,13 +78,9 @@ node scripts/measure-difficulty.mjs --calibrate  # plus suggested evenly spaced 
   script). It walks a dial between them and picks stage values whose scores
   step evenly from 0.1 (stage 1) to 0.7 (stage 5). When a style can't get that
   hard within a sensible range, stage 1 sits at its hardest and the steps stay even.
-- **Known blind spots:** fine repeating patterns (scanlines, ASCII glyphs) alias
-  at 32 px, and edges-only never correlates strongly with a photo. Those values
-  were smoothed by hand.
-- **Inherently easy at stage 1:** RGB split and motion blur keep the gist even at
-  their strongest sensible settings (scores around 0.5).
-- The v1 rotation styles keep the brief's values. On this score, two-tone starts
-  easy (0.56) and hidden tiles ends hard (0.43).
+- **Inherently easy at stage 1:** motion blur keeps the gist even at its strongest
+  sensible setting (scores around 0.5).
+- The v1 rotation styles keep the brief's values. On this score, hidden tiles ends hard (0.43).
 
 ## Tuning notes
 

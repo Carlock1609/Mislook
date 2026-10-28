@@ -8,7 +8,7 @@ import imagesJson from "@/content/images.json"
 import settingsJson from "@/content/settings.json"
 
 /** Styles an image can use in the daily rotation (test-panel-only styles are in `lib/gl/scene.ts`). */
-export type StyleId = "tile-shuffle" | "hidden-tiles" | "two-tone" | "ripple"
+export type StyleId = "tile-shuffle" | "hidden-tiles" | "ripple"
 
 /** One entry of `content/images.json`. */
 export type PuzzleImage = {

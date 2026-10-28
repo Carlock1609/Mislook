@@ -17,34 +17,11 @@ import { settings } from "@/lib/content"
 import { seededRandom, shuffledIndices } from "@/lib/gl/random"
 
 /** Styles in the daily rotation. */
-export const ROTATION_STYLES = ["tile-shuffle", "hidden-tiles", "two-tone", "ripple"] as const
+export const ROTATION_STYLES = ["tile-shuffle", "hidden-tiles", "ripple"] as const
 /** Styles being judged in the test panel. They never join the rotation from here. */
-export const CANDIDATE_STYLES = [
-  "ring-lock",
-  "shredder",
-  "rotated-tiles",
-  "keyholes",
-  "shattered-glass",
-  "melt",
-  "static",
-  "fisheye",
-  "tunnel",
-  "negative",
-  "kaleidoscope",
-] as const
+export const CANDIDATE_STYLES = ["ring-lock", "shredder", "keyholes", "fisheye", "tunnel", "kaleidoscope"] as const
 /** Further experiments to judge by eye (from an outside list of distortion ideas). Test panel only. */
-export const EXPERIMENT_STYLES = [
-  "rgb-split",
-  "slice-glitch",
-  "liquid-warp",
-  "halftone",
-  "dither",
-  "ascii",
-  "scanlines",
-  "edges",
-  "motion-blur",
-  "mosaic",
-] as const
+export const EXPERIMENT_STYLES = ["slice-glitch", "liquid-warp", "motion-blur", "mosaic"] as const
 /** Every style the test panel can show: rotation, then candidates, then experiments. */
 export const ALL_STYLES = [...ROTATION_STYLES, ...CANDIDATE_STYLES, ...EXPERIMENT_STYLES] as const
 /** Any style id the renderers understand, including test-panel-only ones. */
@@ -54,27 +31,15 @@ export type AnyStyleId = (typeof ALL_STYLES)[number]
 export const STYLE_LABELS: Record<AnyStyleId, string> = {
   "tile-shuffle": "Tile shuffle",
   "hidden-tiles": "Hidden tiles",
-  "two-tone": "Two-tone",
   ripple: "Ripple",
   "ring-lock": "Ring lock",
   shredder: "Shredder",
-  "rotated-tiles": "Rotated tiles",
   keyholes: "Keyholes",
-  "shattered-glass": "Shattered glass",
-  melt: "Melt",
-  static: "Static",
   fisheye: "Fisheye",
   tunnel: "Tunnel",
-  negative: "Negative",
   kaleidoscope: "Kaleidoscope",
-  "rgb-split": "RGB split",
   "slice-glitch": "Slice glitch",
   "liquid-warp": "Liquid warp",
-  halftone: "Halftone",
-  dither: "Ordered dither",
-  ascii: "ASCII",
-  scanlines: "Scanlines",
-  edges: "Edges only",
   "motion-blur": "Motion blur",
   mosaic: "Mosaic",
 }
@@ -86,27 +51,15 @@ export const STYLE_LABELS: Record<AnyStyleId, string> = {
 export const KNOBS: Record<AnyStyleId, { key: string; min: number; max: number; step: number }> = {
   "tile-shuffle": { key: "outOfPlace", min: 0, max: 1, step: 0.01 },
   "hidden-tiles": { key: "visible", min: 0, max: 1, step: 0.01 },
-  "two-tone": { key: "toneLevels", min: 2, max: 12, step: 1 },
   ripple: { key: "amplitude", min: 0, max: 0.25, step: 0.005 },
   "ring-lock": { key: "turn", min: 0, max: 1, step: 0.01 },
   shredder: { key: "outOfPlace", min: 0, max: 1, step: 0.01 },
-  "rotated-tiles": { key: "turned", min: 0, max: 1, step: 0.01 },
   keyholes: { key: "holes", min: 1, max: 32, step: 1 },
-  "shattered-glass": { key: "scatter", min: 0, max: 2, step: 0.01 },
-  melt: { key: "amount", min: 0, max: 1, step: 0.01 },
-  static: { key: "amount", min: 0, max: 1, step: 0.01 },
   fisheye: { key: "strength", min: 0, max: 4, step: 0.05 },
   tunnel: { key: "scale", min: 0, max: 0.9, step: 0.01 },
-  negative: { key: "contrast", min: 0.05, max: 1, step: 0.01 },
   kaleidoscope: { key: "amount", min: 0, max: 1, step: 0.01 },
-  "rgb-split": { key: "offset", min: 0, max: 0.15, step: 0.001 },
   "slice-glitch": { key: "shift", min: 0, max: 1, step: 0.01 },
   "liquid-warp": { key: "amplitude", min: 0, max: 0.2, step: 0.002 },
-  halftone: { key: "cell", min: 0.005, max: 0.1, step: 0.001 },
-  dither: { key: "cell", min: 0.002, max: 0.05, step: 0.0005 },
-  ascii: { key: "cell", min: 0.008, max: 0.08, step: 0.001 },
-  scanlines: { key: "cover", min: 0, max: 0.95, step: 0.01 },
-  edges: { key: "threshold", min: 0.02, max: 1.2, step: 0.01 },
   "motion-blur": { key: "length", min: 0, max: 0.3, step: 0.002 },
   mosaic: { key: "cell", min: 0.005, max: 0.15, step: 0.001 },
 }
@@ -144,26 +97,15 @@ export type Shard = { tri: number[]; pivotX: number; pivotY: number; dx: number;
 export type Scene = { colour: boolean } & (
   | { kind: "tiles"; grid: number; tiles: Tile[] }
   | { kind: "hidden"; grid: number; hidden: boolean[]; delay: number[] }
-  | { kind: "twoTone"; levels: number; bias: number }
   | { kind: "ripple"; amplitude: number; waves: number; phaseX: number; phaseY: number }
   | { kind: "rings"; angles: number[] }
   | { kind: "strips"; slots: number[] }
   | { kind: "keyholes"; holes: Hole[] }
-  | { kind: "shards"; shards: Shard[] }
-  | { kind: "melt"; amount: number; phases: number[] }
-  | { kind: "static"; amount: number; seed: string }
   | { kind: "fisheye"; strength: number; centerX: number; centerY: number }
   | { kind: "tunnel"; scale: number; twist: number; centerX: number; centerY: number }
-  | { kind: "negative"; invert: number; contrast: number }
   | { kind: "kaleidoscope"; amount: number; segments: number; spin: number; source: number }
-  | { kind: "echo"; offset: number; angle: number }
   | { kind: "slices"; shift: number; offsets: number[] }
   | { kind: "liquid"; amplitude: number; phases: number[] }
-  | { kind: "halftone"; cell: number }
-  | { kind: "dither"; cell: number }
-  | { kind: "ascii"; cell: number }
-  | { kind: "scanlines"; cover: number; lines: number }
-  | { kind: "edges"; threshold: number }
   | { kind: "motionBlur"; length: number; angle: number }
   | { kind: "mosaic"; cell: number }
 )
@@ -217,13 +159,6 @@ export function buildScene({ style, stage, seed, tuning, focus }: SceneInput): S
         delay: rank.map((r) => (r % 11) / 10),
       }
     }
-    case "two-tone":
-      return {
-        kind: "twoTone",
-        colour: clear,
-        levels: clear ? 0 : at("toneLevels"),
-        bias: clear ? 0 : at("blackBias"),
-      }
     case "ripple": {
       const random = seededRandom(`${seed}:ripple`)
       return {
@@ -252,20 +187,6 @@ export function buildScene({ style, stage, seed, tuning, focus }: SceneInput): S
       const order = shuffledIndices(strips, seededRandom(`${seed}:strips`))
       return { kind: "strips", colour: clear, slots: cycleCells(order, clear ? 0 : at("outOfPlace")) }
     }
-    case "rotated-tiles": {
-      const g = fixed("grid")
-      const random = seededRandom(`${seed}:rotated`)
-      const order = shuffledIndices(g * g, random)
-      const turns = order.map(() => 1 + Math.floor(random() * 3))
-      const turned = clear ? 0 : Math.round(at("turned") * g * g)
-      const tiles: Tile[] = Array.from({ length: g * g }, (_, i) => ({
-        cellX: i % g,
-        cellY: Math.floor(i / g),
-        rot: 0,
-      }))
-      for (let k = 0; k < turned; k++) tiles[order[k]].rot = turns[k]
-      return { kind: "tiles", colour: clear, grid: g, tiles }
-    }
     case "keyholes": {
       const count = clear ? MAX_HOLES : Math.round(at("holes"))
       const radius = clear ? 1.5 : at("radius")
@@ -279,19 +200,6 @@ export function buildScene({ style, stage, seed, tuning, focus }: SceneInput): S
         })),
       }
     }
-    case "shattered-glass":
-      return { kind: "shards", colour: clear, shards: shardLayout(seed, clear ? 0 : at("scatter")) }
-    case "melt": {
-      const random = seededRandom(`${seed}:melt`)
-      return {
-        kind: "melt",
-        colour: clear,
-        amount: clear ? 0 : at("amount"),
-        phases: [0, 1, 2, 3].map(() => random() * Math.PI * 2),
-      }
-    }
-    case "static":
-      return { kind: "static", colour: clear, amount: clear ? 0 : at("amount"), seed }
     case "fisheye": {
       const [centerX, centerY] = awayFromSubject(seed, focus)
       return { kind: "fisheye", colour: clear, strength: clear ? 0 : at("strength"), centerX, centerY }
@@ -307,8 +215,6 @@ export function buildScene({ style, stage, seed, tuning, focus }: SceneInput): S
         centerY,
       }
     }
-    case "negative":
-      return { kind: "negative", colour: clear, invert: clear ? 0 : 1, contrast: clear ? 1 : at("contrast") }
     case "kaleidoscope": {
       const random = seededRandom(`${seed}:kaleidoscope`)
       return {
@@ -320,8 +226,6 @@ export function buildScene({ style, stage, seed, tuning, focus }: SceneInput): S
         source: random() * Math.PI * 2,
       }
     }
-    case "rgb-split":
-      return { kind: "echo", colour: clear, offset: clear ? 0 : at("offset"), angle: seededAngle(seed, "echo") }
     case "slice-glitch": {
       const random = seededRandom(`${seed}:slices`)
       return {
@@ -344,18 +248,6 @@ export function buildScene({ style, stage, seed, tuning, focus }: SceneInput): S
         phases: [0, 1, 2, 3].map(() => random() * Math.PI * 2),
       }
     }
-    // Filter styles keep their stage-5 setting on the clear stage; the final
-    // reveal fades from the filtered image to the photo instead.
-    case "halftone":
-      return { kind: "halftone", colour: clear, cell: clear ? last("cell") : at("cell") }
-    case "dither":
-      return { kind: "dither", colour: clear, cell: clear ? last("cell") : at("cell") }
-    case "ascii":
-      return { kind: "ascii", colour: clear, cell: clear ? last("cell") : at("cell") }
-    case "scanlines":
-      return { kind: "scanlines", colour: clear, cover: clear ? last("cover") : at("cover"), lines: fixed("lines") }
-    case "edges":
-      return { kind: "edges", colour: clear, threshold: clear ? last("threshold") : at("threshold") }
     case "motion-blur":
       return {
         kind: "motionBlur",

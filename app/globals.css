@@ -64,8 +64,18 @@ body {
   z-index: -2;
   opacity: 0.72;
   background:
-    repeating-radial-gradient(ellipse at 50% 48%, transparent 0 15px, rgb(240 239 233 / 0.17) 16px 18px, transparent 19px 31px),
-    conic-gradient(from 18deg at 50% 50%, transparent 0 7deg, rgb(240 239 233 / 0.12) 8deg 9deg, transparent 10deg 22deg);
+    repeating-radial-gradient(
+      ellipse at 50% 48%,
+      transparent 0 15px,
+      rgb(240 239 233 / 0.17) 16px 18px,
+      transparent 19px 31px
+    ),
+    conic-gradient(
+      from 18deg at 50% 50%,
+      transparent 0 7deg,
+      rgb(240 239 233 / 0.12) 8deg 9deg,
+      transparent 10deg 22deg
+    );
   animation: drift var(--motion-background) linear infinite;
   transition: opacity var(--motion-reveal) ease;
   pointer-events: none;
@@ -114,26 +124,18 @@ body {
   animation: wordmark-jitter 4.5s steps(1) infinite;
 }
 
-/* Play transition: a radiating spiral tunnels in over the page. */
-.play-tunnel {
-  position: fixed;
-  inset: -25%;
-  z-index: 50;
-  background: repeating-conic-gradient(
-    from 0deg at 50% 50%,
-    var(--color-bg) 0 9deg,
-    var(--color-ink) 10deg 11deg,
-    var(--color-bg) 12deg 22deg
-  );
-  animation: tunnel var(--motion-medium) var(--ease-fold) both;
+/* Screen change: a short fade. Stage reveals stay on the image, not this wrapper. */
+.screen-out {
+  animation: screen-out 200ms ease both;
   pointer-events: none;
 }
 
+.screen-in {
+  animation: screen-in 200ms var(--ease-out-expo) both;
+}
+
 .bonus-ring {
-  background: conic-gradient(
-    var(--ring-color) 0 var(--bonus-progress),
-    var(--color-line) var(--bonus-progress) 100%
-  );
+  background: conic-gradient(var(--ring-color) 0 var(--bonus-progress), var(--color-line) var(--bonus-progress) 100%);
 }
 
 @keyframes drift {
@@ -159,17 +161,15 @@ body {
   }
 }
 
-@keyframes tunnel {
-  0% {
+@keyframes screen-out {
+  to {
     opacity: 0;
-    transform: scale(1.8) rotate(0);
   }
-  42% {
-    opacity: 1;
-  }
-  100% {
+}
+
+@keyframes screen-in {
+  from {
     opacity: 0;
-    transform: scale(0.05) rotate(24deg);
   }
 }
 
@@ -227,10 +227,9 @@ body {
     animation: none;
   }
 
-  .play-tunnel {
-    background: var(--color-bg);
-    animation-name: crossfade;
-    animation-direction: alternate;
+  .screen-out,
+  .screen-in {
+    animation: none;
   }
 
   *,

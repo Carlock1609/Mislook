@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest"
-import { dayIndexFor, formatHms, formatMss, imageIndexFor, nextZonedMidnight, zonedDateString } from "@/lib/daily"
+import {
+  dateForDayIndex,
+  dayIndexFor,
+  formatHms,
+  formatMss,
+  imageIndexFor,
+  nextZonedMidnight,
+  zonedDateString,
+} from "@/lib/daily"
 
 const TZ = "America/Los_Angeles"
 const DAY_0 = "2026-10-18"
@@ -37,6 +45,14 @@ describe("imageIndexFor", () => {
 
 describe("zonedDateString", () => {
   it("gives the Pacific date", () => expect(zonedDateString(at("2026-10-19T06:59:59Z"), TZ)).toBe("2026-10-18"))
+})
+
+describe("dateForDayIndex", () => {
+  it("matches DAY_0 and later days", () => {
+    expect(dateForDayIndex(0, DAY_0)).toBe("2026-10-18")
+    expect(dateForDayIndex(1, DAY_0)).toBe("2026-10-19")
+    expect(dateForDayIndex(14, DAY_0)).toBe("2026-11-01")
+  })
 })
 
 describe("nextZonedMidnight", () => {

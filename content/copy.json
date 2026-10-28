@@ -5,7 +5,7 @@
   "howToPlay": [
     "Five stages, from unrecognisable to nearly clear",
     "One guess per stage, or Reveal to move on",
-    "Earlier and faster scores more; wrong guesses cost points",
+    "Earlier and faster scores more. A skip costs points; a wrong guess costs more",
     "One image a day"
   ],
   "playButton": "Play",

@@ -130,7 +130,7 @@ Each style has one *intensity* knob that goes from hardest (stage 1) to easiest 
 | --- | --- | --- |
 | Tile shuffle | **Keep (v1)** | |
 | Hidden tiles | **Keep (v1)** | |
-| Two-tone | **Keep (v1)** | |
+| Two-tone | Dropped | Removed from the rotation and the test panel |
 | Ripple | **Keep (v1)** | |
 | Darkness / spotlight | Dropped | Retested in the app and removed |
 | Kaleidoscope | Retest | The POC version was likely weak; rebuild it properly (WebGL) and judge again |
@@ -145,16 +145,11 @@ These go in the test panel and only join the rotation if they feel good.
 | --- | --- | --- |
 | Ring lock | Image cut into concentric rings, each turned a different amount, like a combination lock | Rings rotate back into line |
 | Shredder | Image cut into thin vertical strips, shuffled | Strips return to order |
-| Rotated tiles | Grid of tiles, each turned 90°, 180° or 270° in place | Tiles turn back upright |
 | Keyholes | Black, with a few small round holes scattered across the image | Holes grow and multiply |
-| Shattered glass | Image broken into sharp shards, each nudged and turned | Shards settle back into place |
-| Melt | Image dripping downward, like Inception's melting city | Drips pull back up |
-| Static | Image buried under frozen TV static (never flickering) | Static thins out |
 | Fisheye | Extreme lens bulge, centred away from the subject | Bulge flattens |
 | Tunnel | Image repeating into itself, Inception-style | Repeats unwind |
-| Negative | Tones inverted | Probably too easy alone; better as an extra on stages 1–2 |
 
-Further experiments from an outside list (RGB split, slice glitch, liquid warp, halftone, ordered dither, ASCII, scanlines, edges only, motion blur, mosaic) are also in the test panel; see `documents/distortion-styles.md`.
+Rotated tiles, shattered glass, melt, static, and negative were tried and removed. Further experiments still in the test panel: slice glitch, liquid warp, motion blur, and mosaic. RGB split, halftone, ordered dither, ASCII, scanlines, and edges only were removed. See `documents/distortion-styles.md`.
 
 #### How styles map to stages
 
@@ -168,18 +163,18 @@ The style is chosen per image in `images.json`, because some images suit some st
 
 These are harder than the POC.
 
-| Stage | Tile shuffle (8×8: out of place / also rotated) | Hidden tiles (8×8: tiles visible) | Two-tone (tone levels) | Ripple (wave height as a share of the side / waves across) |
-| --- | --- | --- | --- | --- |
-| 1 | 100% / 50% | 6% | 2, mostly black | 0.12 / 14 |
-| 2 | 85% / 25% | 15% | 2 | 0.09 / 12 |
-| 3 | 65% / 0% | 30% | 3 | 0.06 / 10 |
-| 4 | 40% / 0% | 50% | 4 | 0.035 / 8 |
-| 5 | 20% / 0% | 70% | 6 | 0.015 / 6 |
-| Result | Clear, in colour | Clear, in colour | Clear, in colour | Clear, in colour |
+| Stage | Tile shuffle (8×8: out of place / also rotated) | Hidden tiles (8×8: tiles visible) | Ripple (wave height as a share of the side / waves across) |
+| --- | --- | --- | --- |
+| 1 | 100% / 50% | 6% | 0.12 / 14 |
+| 2 | 85% / 25% | 15% | 0.09 / 12 |
+| 3 | 65% / 0% | 30% | 0.06 / 10 |
+| 4 | 40% / 0% | 50% | 0.035 / 8 |
+| 5 | 20% / 0% | 70% | 0.015 / 6 |
+| Result | Clear, in colour | Clear, in colour | Clear, in colour |
 
 **Rules per style:**
 
-- **Style ids:** `tile-shuffle`, `hidden-tiles`, `two-tone` and `ripple`. `kaleidoscope`, the new candidates and the further experiments exist in the test panel only.
+- **Style ids:** `tile-shuffle`, `hidden-tiles`, and `ripple`. `kaleidoscope`, the remaining candidates, and the further experiments exist in the test panel only.
 - **Tile shuffle:** one grid for every stage (`tileGrid`, starting at 8 × 8).
   - Tiles out of place = round(fraction × columns × rows).
   - On stages 1–2, some of those tiles are also rotated.
@@ -188,7 +183,6 @@ These are harder than the POC.
 - **Hidden tiles:** black squares on the same grid.
   - The visible set comes from the date seed.
   - It only grows: every tile visible at one stage stays visible at the next.
-- **Two-tone:** posterizes luma into `toneLevels` equal bands, with no dither. On stage 1 the threshold is pushed so most of the image is black.
 - **Ripple:** sine-wave displacement in both directions.
   - The settled stage is still; the waves move only during transitions.
   - The wave phase comes from the date seed.
@@ -200,8 +194,8 @@ These are harder than the POC.
 ### Turn
 
 - Each stage offers **Guess** or **Reveal**.
-- One guess per stage. A wrong guess locks Guess until Reveal.
-- Reveal moves to the next stage. It never costs a wrong-guess penalty, but you drop to a lower stage base.
+- One guess per stage. A wrong guess locks Guess until Reveal and costs the wrong-guess penalty.
+- Reveal with no guess on that stage moves to the next stage and costs the skip penalty, which is less than a wrong guess. Reveal after a wrong guess does not also charge the skip.
 - Empty or whitespace-only input does not use the guess. A guess that normalizes to empty does not use the guess either. The field accepts at most 48 characters, counted before normalization; further keystrokes do nothing.
 - A correct guess ends the round as a win.
 - A wrong guess or Reveal on stage 5 ends the round as a miss.
@@ -211,15 +205,16 @@ These are harder than the POC.
 
 - Starts when the stage-1 image settles on screen after Play. Image loading and the intro transition don't count.
 - Stops on a win or a miss.
-- The countdown shows the live time bonus in points, from 1000 down to 0, falling by 5 per floored elapsed second. At 0 the bonus is gone and play continues. Variant `low` is when the bonus is greater than 0 and at most 200. Points available now is separate: the score a correct guess would get at this moment, `max(100, stageBase + timeBonus - wrongPenalty)`, on the same one-second tick. The result countdown is hours and minutes until the next Pacific midnight (`H:MM:SS`), not the time bonus.
+- The countdown shows the live time bonus in points, from 1000 down to 0, falling by 5 per floored elapsed second. At 0 the bonus is gone and play continues. Variant `low` is when the bonus is greater than 0 and at most 200. Points available now is separate: the score a correct guess would get at this moment, `max(100, stageBase + timeBonus - skipPenalty - wrongPenalty)`, on the same one-second tick. The result countdown is hours and minutes until the next Pacific midnight (`H:MM:SS`), not the time bonus.
 
 ### Scoring
 
 ```text
 stageBase    = [5000, 4000, 3000, 2000, 1000][stage - 1]
 timeBonus    = max(0, 1000 - elapsedSeconds * 5)    // gone after 200s
+skipPenalty  = skips * 200
 wrongPenalty = wrongGuesses * 400
-win          = max(100, stageBase + timeBonus - wrongPenalty)
+win          = max(100, stageBase + timeBonus - skipPenalty - wrongPenalty)
 miss         = 0
 ```
 
@@ -285,7 +280,7 @@ Everything you'd want to change without touching components lives in `content/`.
 
 An image may also set `"focus": [0.5, 0.4]` to mark where the subject is; test-panel styles such as fisheye use it to aim away from the subject.
 
-v1 ships with **10 dummy images** and dummy answers. They will be replaced with the real list.
+The current ten photos and their keyword lists are in `content/images.json`. `title` is what the result shows. `accept` is every guess that wins.
 
 ### Images
 
@@ -302,18 +297,18 @@ Prebuilt text, copied with one tap. No answer, no link.
 
 Worked example, stage 2 win, 64 elapsed seconds, 0 wrong guesses: stageBase 4000 + timeBonus (1000 − 64×5 = 680) − 0 = 4680. Share time is elapsed time since the stage-1 settle, floored to whole seconds, formatted `m:ss`.
 
-Five squares, one per stage, left to right. ■ is a stage the player reached. □ is a stage still ahead of where the round ended. A win fills stages 1 through the winning stage and has no ✕. A miss is always stage 5, so the row is ■■■■■ ✕. The ✕ is only on a miss.
+The result is words: the puzzle date, `WON` or `LOST`, the stage the round ended on, the score, and the elapsed time. No square row and no ✕.
 
 ```text
 Mislook #12
-Stage 2 · 4,680 pts · 1:04
-■■□□□
+October 29, 2026
+WON · Stage 2 · 4,680 pts · 1:04
 ```
 
 ```text
 Mislook #12
-Mislooked · 0 pts · 2:37
-■■■■■ ✕
+October 29, 2026
+LOST · Stage 5 · 0 pts · 2:37
 ```
 
 ## Site stats
@@ -359,13 +354,13 @@ The bright neon and psychedelic colour in the others is **not** the app's palett
   - No gradients, no pastels, no neon.
 - **Lines and edges:** hard, crisp, thin. Op-art patterns are precise, never noisy.
 - **Background:** slow, living op-art (rotating spiral, drifting moiré or checkerboard warp). It calms down and dims during play so it never competes with the image.
-- **Transitions:** where it gets wild. Landing→game folds or tunnels in. Stage reveals glitch, slice, swirl and chromatically split, then settle.
+- **Transitions:** stage reveals glitch, slice, swirl and chromatically split, then settle. Landing→game, and game→result, are a short fade.
 - **Wordmark:** "Mislook" with a built-in distortion (slice offset, echo, or RGB split) that can animate on the landing.
 - **Readability rule:** text always sits on a calm surface. Never put body text over moving op-art.
 
 **Motion timings:**
 
-- Landing → game: 0.8–1.2s.
+- Landing → game: a short fade, about 0.4s.
 - Stage reveal: 1s.
 - Final reveal: 1s, denser than a stage reveal.
 - Wrong guess: shake plus a brief RGB jitter, under 0.5s, together with the wrong-guess text.
@@ -431,7 +426,7 @@ Each step leaves the app runnable. Steps 1–2 wait for the Figma POC; step 3 ca
 
 1. **Shell:** one page, how-to-play → game → result states, with dummy content from `content/`.
    *Done when:* Play doesn't change the URL; how to play, coming soon, game, and result all render on phone and desktop.
-2. **Image and effects:** WebGL image with the four v1 styles (tile shuffle, hidden tiles, two-tone, ripple) at five stages each, plus one trippy transition; Canvas 2D fallback with the same settled stages.
+2. **Image and effects:** WebGL image with the three v1 styles (tile shuffle, hidden tiles, ripple) at five stages each, plus one trippy transition; Canvas 2D fallback with the same settled stages.
    *Done when:* each stage settles crisp; each style visibly gets easier every stage; the transition plays at a smooth frame rate on a phone; reduced motion crossfades.
 3. **Rules:** `normalize`, `score`, `reduce`, `daily`, `share`, with tests.
    *Done when:* tests cover case, punctuation, leading "the", an accepted answer, a misspelling rejected, a win at each stage, the 100-point floor, the time bonus reaching zero, stage-5 miss and stage-5 reveal, midnight Pacific, the loop after the last image, and before `DAY_0`.
@@ -459,6 +454,7 @@ Accounts, any database beyond the visit counter, leaderboard, admin page, mid-ro
 4. Likeness matching for near-miss guesses
 5. Leaderboard, then accounts, then server-checked scores
 6. Sound
+7. **Keyword difficulty meter.** Three settings, three keyword lists per photo. The meter chooses how specific a guess has to be. The broad list is today's `accept` array. See `documents/architecture.md`.
 
 ## Open items
 
@@ -466,6 +462,6 @@ Accounts, any database beyond the visit counter, leaderboard, admin page, mid-ro
 | --- | --- | --- |
 | Figma POC (see the Figma brief) | Build steps 1, 2, 7 | Figma |
 | How-to-play, win and miss copy | `copy.json` | You (placeholders until then) |
-| Real images (you generate them), with accepted answers and a style for each | Build step 8 | You |
+| Real images, with accepted answers and a style for each | Build step 8 | Done for the first ten |
 | Create the `mislook` repo and connect Vercel | Deploy | You |
 | Add Upstash Redis from the Vercel dashboard (free tier) | Site stats | You |

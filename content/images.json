@@ -1,62 +1,195 @@
 [
   {
-    "file": "e3a8b9.webp",
-    "style": "tile-shuffle",
-    "title": "Castle",
-    "accept": ["castle", "hogwarts", "hogwarts castle"]
+    "title": "Hogwarts",
+    "accept": [
+      "Hogwarts",
+      "Hogwarts Castle",
+      "Hogwarts School",
+      "Hogwarts School of Witchcraft and Wizardry",
+      "Harry Potter",
+      "Harry Potter Castle",
+      "Harry Potter Hogwarts",
+      "Hogwarts from Harry Potter"
+    ],
+    "file": "7c4e1a.webp",
+    "style": "tile-shuffle"
   },
   {
-    "file": "e6fced.webp",
-    "style": "hidden-tiles",
-    "title": "Skyscraper",
-    "accept": ["skyscraper", "empire state building", "empire state"]
+    "title": "Tatooine",
+    "accept": [
+      "Tatooine",
+      "Star Wars",
+      "Star Wars Tatooine",
+      "Planet Tatooine",
+      "Luke Skywalker's Home Planet",
+      "Luke Skywalker's Planet",
+      "Twin Suns of Tatooine",
+      "Tatooine Twin Suns",
+      "Mos Eisley",
+      "Mos Espa"
+    ],
+    "file": "2b91f0.webp",
+    "style": "hidden-tiles"
   },
   {
-    "file": "902d31.webp",
-    "style": "two-tone",
-    "title": "Thanos",
-    "accept": ["thanos"]
+    "title": "Mordor",
+    "accept": [
+      "Mordor",
+      "The Lord of the Rings",
+      "LOTR",
+      "Eye of Sauron",
+      "Sauron's Eye",
+      "Sauron",
+      "Barad-dûr",
+      "Tower of Sauron",
+      "Sauron's Tower",
+      "Dark Tower of Mordor",
+      "Mordor Tower"
+    ],
+    "file": "8d3a66.webp",
+    "style": "ripple"
   },
   {
-    "file": "465ffa.webp",
-    "style": "ripple",
-    "title": "Beach",
-    "accept": ["beach", "sunset beach", "beach at sunset"]
+    "title": "The Wall",
+    "accept": [
+      "The Wall",
+      "Game of Thrones",
+      "GOT",
+      "The Wall Game of Thrones",
+      "Game of Thrones Wall",
+      "Night's Watch",
+      "Nights Watch",
+      "The Wall of Westeros",
+      "Castle Black",
+      "The Ice Wall",
+      "The Wall in Game of Thrones"
+    ],
+    "file": "51e0c4.webp",
+    "style": "tile-shuffle"
   },
   {
-    "file": "c7bf17.webp",
-    "style": "tile-shuffle",
-    "title": "Wolf",
-    "accept": ["wolf", "direwolf", "dire wolf"]
+    "title": "SpongeBob's house",
+    "accept": [
+      "SpongeBob",
+      "SpongeBob SquarePants",
+      "SpongeBob's House",
+      "Spongebobs House",
+      "SpongeBob's Pineapple",
+      "Spongebobs Pineapple",
+      "SpongeBob's Pineapple House",
+      "Pineapple House",
+      "Pineapple Under the Sea",
+      "Who Lives in a Pineapple Under the Sea",
+      "Bikini Bottom",
+      "SpongeBob's Home",
+      "Spongebob Pineapple"
+    ],
+    "file": "a9f27b.webp",
+    "style": "hidden-tiles"
   },
   {
-    "file": "be7bda.webp",
-    "style": "hidden-tiles",
-    "title": "Staircase",
-    "accept": ["staircase", "stairs", "steps"]
+    "title": "Jurassic Park",
+    "accept": [
+      "Jurassic Park",
+      "Jurassic World",
+      "Jurassic Park Gates",
+      "Jurassic Park Entrance",
+      "Jurassic Park Gate",
+      "Jurassic Park Main Gate",
+      "Jurassic Park Entrance Gates",
+      "Jurassic Park Movie",
+      "Jurassic Park Theme Park",
+      "Jurassic Park Dinosaur Park",
+      "Isla Nublar",
+      "Jurassic Park Island"
+    ],
+    "file": "3c8d15.webp",
+    "style": "ripple"
   },
   {
-    "file": "6ba992.webp",
-    "style": "two-tone",
-    "title": "Skyline",
-    "accept": ["skyline", "city skyline", "city"]
+    "title": "Darth Vader",
+    "accept": [
+      "Darth Vader",
+      "Vader",
+      "Lord Vader",
+      "Star Wars",
+      "Darth Vader Star Wars",
+      "Star Wars Darth Vader",
+      "Death Star",
+      "Death Star Window",
+      "Death Star Observation Deck",
+      "Galactic Empire",
+      "Imperial Space Station",
+      "Darth Vader on the Death Star"
+    ],
+    "file": "e04b72.webp",
+    "style": "tile-shuffle"
   },
   {
-    "file": "39abd0.webp",
-    "style": "ripple",
-    "title": "Street",
-    "accept": ["street", "city street", "painting"]
+    "title": "The Shire",
+    "accept": [
+      "The Shire",
+      "Hobbiton",
+      "Hobbit Hole",
+      "Hobbit House",
+      "Hobbit Home",
+      "Bag End",
+      "Bilbo's House",
+      "Bilbo Baggins' House",
+      "Bilbos House",
+      "Frodo's House",
+      "Frodos House",
+      "The Hobbit",
+      "The Lord of the Rings",
+      "LOTR",
+      "Hobbiton Village",
+      "The Shire Hobbiton"
+    ],
+    "file": "6f1a9d.webp",
+    "style": "hidden-tiles"
   },
   {
-    "file": "9dd890.webp",
-    "style": "tile-shuffle",
-    "title": "Spiral",
-    "accept": ["spiral", "vortex", "tunnel"]
+    "title": "Hyrule",
+    "accept": [
+      "Zelda",
+      "The Legend of Zelda",
+      "Breath of the Wild",
+      "Zelda Breath of the Wild",
+      "BOTW",
+      "Hyrule",
+      "Kingdom of Hyrule",
+      "Hyrule Kingdom",
+      "Link",
+      "Link from Zelda",
+      "Hyrule Landscape",
+      "Hyrule Castle",
+      "Zelda Hyrule",
+      "Tears of the Kingdom",
+      "TOTK",
+      "Zelda Tears of the Kingdom"
+    ],
+    "file": "b85c30.webp",
+    "style": "ripple"
   },
   {
-    "file": "8561b4.webp",
-    "style": "hidden-tiles",
-    "title": "Neon city",
-    "accept": ["neon city", "neon street", "city", "times square"]
+    "title": "Rainbow Road",
+    "accept": [
+      "Rainbow Road",
+      "Mario Kart",
+      "Mario",
+      "Super Mario",
+      "Super Mario Kart",
+      "Mario Kart Rainbow Road",
+      "Rainbow Road Mario Kart",
+      "Rainbow Track",
+      "Mario Rainbow Road",
+      "Rainbow Road Track",
+      "Nintendo Mario Kart",
+      "Mario Kart Rainbow Track",
+      "Rainbow Road Race",
+      "Rainbow Road Course"
+    ],
+    "file": "14d7e8.webp",
+    "style": "tile-shuffle"
   }
 ]
