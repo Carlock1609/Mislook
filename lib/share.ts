@@ -3,24 +3,38 @@
  *
  * ```text
  * Mislook #12
- * Stage 2 · 4,680 pts · 1:04
- * ■■□□□
+ * October 18, 2026
+ * WON · Stage 2 · 4,680 pts · 1:04
  * ```
  */
 
-import { STAGES } from "@/lib/content"
 import { formatMss } from "@/lib/daily"
 import type { RoundResult } from "@/lib/reduce"
 
-/** ■ for each stage reached, □ for each still ahead; a miss adds ✕. */
-export function shareSquares(result: RoundResult) {
-  const reached = result.won ? result.stage : STAGES
-  return "■".repeat(reached) + "□".repeat(STAGES - reached) + (result.won ? "" : " ✕")
+const MONTHS = [
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
+] as const
+
+/** `YYYY-MM-DD` as `October 20, 2026`. The string is already a calendar date, so it is not parsed as an instant. */
+function formatShareDate(date: string) {
+  const [year, month, day] = date.split("-").map(Number)
+  return `${MONTHS[month - 1]} ${day}, ${year}`
 }
 
-/** The three-line text copied by Copy result. */
-export function shareText(number: number, result: RoundResult) {
+/** The text copied by Copy result. */
+export function shareText(number: number, date: string, result: RoundResult) {
+  const outcome = result.won ? "WON" : "LOST"
   const score = `${result.score.toLocaleString("en-US")} pts`
-  const summary = result.won ? `Stage ${result.stage}` : "Mislooked"
-  return `Mislook #${number}\n${summary} · ${score} · ${formatMss(result.elapsedSeconds)}\n${shareSquares(result)}`
+  return `Mislook #${number}\n${formatShareDate(date)}\n${outcome} · Stage ${result.stage} · ${score} · ${formatMss(result.elapsedSeconds)}`
 }

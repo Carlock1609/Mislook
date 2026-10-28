@@ -40,13 +40,17 @@ describe("pointsAvailable", () => {
     [4, 3000],
     [5, 2000],
   ])("a fast win at stage %i scores %i", (stage, points) => {
-    expect(pointsAvailable(stage, 0, 0, scoring)).toBe(points)
+    expect(pointsAvailable(stage, 0, 0, 0, scoring)).toBe(points)
   })
-  it("matches the brief's worked example", () => expect(pointsAvailable(2, 64, 0, scoring)).toBe(4680))
-  it("takes 400 per wrong guess", () => expect(pointsAvailable(3, 0, 2, scoring)).toBe(3200))
-  it("loses the time bonus after 200s", () => expect(pointsAvailable(4, 250, 0, scoring)).toBe(2000))
+  it("matches the brief's worked example", () => expect(pointsAvailable(2, 64, 0, 0, scoring)).toBe(4680))
+  it("takes 400 per wrong guess and 200 per skip", () => {
+    expect(pointsAvailable(3, 0, 2, 0, scoring)).toBe(3200)
+    expect(pointsAvailable(2, 0, 0, 1, scoring)).toBe(4800)
+    expect(pointsAvailable(2, 0, 1, 0, scoring)).toBe(4600)
+  })
+  it("loses the time bonus after 200s", () => expect(pointsAvailable(4, 250, 0, 0, scoring)).toBe(2000))
   it("never goes below the 100-point floor", () => {
-    expect(pointsAvailable(5, 300, 3, scoring)).toBe(100)
-    expect(pointsAvailable(5, 300, 2, scoring)).toBe(200)
+    expect(pointsAvailable(5, 300, 3, 0, scoring)).toBe(100)
+    expect(pointsAvailable(5, 300, 2, 0, scoring)).toBe(200)
   })
 })

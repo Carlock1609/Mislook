@@ -11,9 +11,8 @@
  * Shader sources live in `shaders.ts`; the per-stage maths in `scene.ts`.
  */
 
-import { glyphAtlas } from "@/lib/gl/glyphs"
 import { createAnimator, type Renderer, type ShowOptions, TRANSITION_MS } from "@/lib/gl/renderer"
-import { easeInOut, MAX_BANDS, MAX_HOLES, NOISE_SIZE, type Scene, staticNoise } from "@/lib/gl/scene"
+import { easeInOut, MAX_BANDS, MAX_HOLES, type Scene } from "@/lib/gl/scene"
 import {
   CANDIDATE_FRAGMENT,
   EXPERIMENT_FRAGMENT,
@@ -24,9 +23,6 @@ import {
 } from "@/lib/gl/shaders"
 
 /** Texture units: 0 image, 1–2 post-pass framebuffers, then the lookup textures. */
-const NOISE_UNIT = 3
-const GLYPH_UNIT = 4
-
 /** An offscreen colour buffer the style pass renders into. */
 type Target = { texture: WebGLTexture; framebuffer: WebGLFramebuffer }
 
@@ -58,9 +54,6 @@ export function createWebGLRenderer(canvas: HTMLCanvasElement): Renderer | null 
   // them still plays the v1 styles.
   let candidateProgram: WebGLProgram | null = null
   let experimentProgram: WebGLProgram | null = null
-  // Lookup textures, made on first use.
-  let noise: { seed: string; texture: WebGLTexture } | null = null
-  let glyphs: WebGLTexture | null = null
   const uniforms = new Map<WebGLProgram, Map<string, WebGLUniformLocation | null>>()
 
   /** Compiles one shader; throws with the info log on failure (unless the context is lost). */
@@ -134,8 +127,6 @@ export function createWebGLRenderer(canvas: HTMLCanvasElement): Renderer | null 
     postProgram = program(POST_FRAGMENT)
     candidateProgram = null
     experimentProgram = null
-    noise = null
-    glyphs = null
     buffer = ctx.createBuffer()
     targets = [makeTarget(), makeTarget()]
     imageTexture = null
@@ -146,32 +137,6 @@ export function createWebGLRenderer(canvas: HTMLCanvasElement): Renderer | null 
     if (imageTexture) ctx.deleteTexture(imageTexture)
     imageTexture = texture()
     ctx.texImage2D(ctx.TEXTURE_2D, 0, ctx.RGBA, ctx.RGBA, ctx.UNSIGNED_BYTE, img)
-  }
-
-  /** The frozen static noise for `seed` as a nearest-filtered luminance texture (cached). */
-  function noiseTexture(seed: string) {
-    if (noise?.seed === seed) return noise.texture
-    if (noise) ctx.deleteTexture(noise.texture)
-    // Its own unit, so creating it doesn't unbind the image on unit 0.
-    ctx.activeTexture(ctx.TEXTURE0 + NOISE_UNIT)
-    const t = texture()
-    ctx.texParameteri(ctx.TEXTURE_2D, ctx.TEXTURE_MIN_FILTER, ctx.NEAREST)
-    ctx.texParameteri(ctx.TEXTURE_2D, ctx.TEXTURE_MAG_FILTER, ctx.NEAREST)
-    ctx.pixelStorei(ctx.UNPACK_ALIGNMENT, 1)
-    const data = staticNoise(seed)
-    ctx.texImage2D(ctx.TEXTURE_2D, 0, ctx.LUMINANCE, NOISE_SIZE, NOISE_SIZE, 0, ctx.LUMINANCE, ctx.UNSIGNED_BYTE, data)
-    noise = { seed, texture: t }
-    return t
-  }
-
-  /** The ASCII glyph atlas as a texture (cached). */
-  function glyphTexture() {
-    if (glyphs) return glyphs
-    // Its own unit, so creating it doesn't unbind the image on unit 0.
-    ctx.activeTexture(ctx.TEXTURE0 + GLYPH_UNIT)
-    glyphs = texture()
-    ctx.texImage2D(ctx.TEXTURE_2D, 0, ctx.RGBA, ctx.RGBA, ctx.UNSIGNED_BYTE, glyphAtlas())
-    return glyphs
   }
 
   /** Uploads `vertices` (x, y, u, v per vertex) and draws them as triangles with program `p`. */
@@ -274,46 +239,13 @@ export function createWebGLRenderer(canvas: HTMLCanvasElement): Renderer | null 
       return
     }
 
-    // Shattered glass: each triangle is turned about its pivot and nudged;
-    // the texture coordinates stay at its home corners.
-    if (to.kind === "shards" && from.kind === "shards") {
-      const vertices: number[] = []
-      to.shards.forEach((shard, i) => {
-        const a = from.shards[i]
-        const rot = lerp(a.rot, shard.rot, e)
-        const dx = lerp(a.dx, shard.dx, e)
-        const dy = lerp(a.dy, shard.dy, e)
-        const cos = Math.cos(rot)
-        const sin = Math.sin(rot)
-        for (let k = 0; k < 6; k += 2) {
-          const x = shard.tri[k] - shard.pivotX
-          const y = shard.tri[k + 1] - shard.pivotY
-          vertices.push(
-            shard.pivotX + x * cos - y * sin + dx,
-            shard.pivotY + x * sin + y * cos + dy,
-            shard.tri[k],
-            shard.tri[k + 1],
-          )
-        }
-      })
-      bindImage(tileProgram!, "u_image", 0, imageTexture)
-      ctx.uniform1f(uniform(tileProgram!, "u_solid"), 0)
-      draw(tileProgram!, new Float32Array(vertices))
-      return
-    }
-
     if (drawCandidate(from, to, e) || drawExperiment(from, to, e)) return
 
     bindImage(style, "u_image", 0, imageTexture)
     set1("u_mode", 0)
     set1("u_px", 1 / size)
 
-    if (to.kind === "twoTone" && from.kind === "twoTone") {
-      set1("u_mode", 1)
-      set2("u_levels", from.levels, to.levels)
-      set2("u_bias", from.bias, to.bias)
-      set1("u_mix", e)
-    } else if (to.kind === "ripple" && from.kind === "ripple") {
+    if (to.kind === "ripple" && from.kind === "ripple") {
       set1("u_mode", 2)
       set1("u_amp", lerp(from.amplitude, to.amplitude, e))
       set1("u_waves", lerp(from.waves, to.waves, e))
@@ -346,11 +278,8 @@ export function createWebGLRenderer(canvas: HTMLCanvasElement): Renderer | null 
   function drawCandidate(from: Scene, to: Scene, e: number) {
     const modes: Partial<Record<Scene["kind"], number>> = {
       rings: 1,
-      melt: 2,
-      static: 3,
       fisheye: 4,
       tunnel: 5,
-      negative: 6,
       kaleidoscope: 7,
       keyholes: 8,
     }
@@ -368,12 +297,6 @@ export function createWebGLRenderer(canvas: HTMLCanvasElement): Renderer | null 
       // Each ring turns back towards its next angle, like a combination lock.
       set1("u_ringCount", to.angles.length)
       ctx.uniform1fv(uniform(p, "u_angles"), new Float32Array(to.angles.map((a, i) => lerp(from.angles[i], a, e))))
-    } else if (to.kind === "melt" && from.kind === "melt") {
-      ctx.uniform4fv(uniform(p, "u_phases"), new Float32Array(to.phases))
-      set1("u_amount", lerp(from.amount, to.amount, e))
-    } else if (to.kind === "static" && from.kind === "static") {
-      bindImage(p, "u_noise", NOISE_UNIT, noiseTexture(to.seed))
-      set1("u_amount", lerp(from.amount, to.amount, e))
     } else if (to.kind === "fisheye" && from.kind === "fisheye") {
       set2("u_center", to.centerX, to.centerY)
       set1("u_strength", lerp(from.strength, to.strength, e))
@@ -381,8 +304,6 @@ export function createWebGLRenderer(canvas: HTMLCanvasElement): Renderer | null 
       set2("u_center", to.centerX, to.centerY)
       set1("u_strength", lerp(from.scale, to.scale, e))
       set1("u_twist", lerp(from.twist, to.twist, e))
-    } else if (to.kind === "negative" && from.kind === "negative") {
-      set2("u_tone", lerp(from.invert, to.invert, e), lerp(from.contrast, to.contrast, e))
     } else if (to.kind === "kaleidoscope" && from.kind === "kaleidoscope") {
       set1("u_amount", lerp(from.amount, to.amount, e))
       set1("u_segments", lerp(from.segments, to.segments, e))
@@ -400,14 +321,8 @@ export function createWebGLRenderer(canvas: HTMLCanvasElement): Renderer | null 
   /** Full-screen experiment styles. Returns false when `to` isn't one. */
   function drawExperiment(from: Scene, to: Scene, e: number) {
     const modes: Partial<Record<Scene["kind"], number>> = {
-      echo: 1,
       slices: 2,
       liquid: 3,
-      halftone: 4,
-      dither: 5,
-      ascii: 6,
-      scanlines: 7,
-      edges: 8,
       motionBlur: 9,
       mosaic: 10,
     }
@@ -422,10 +337,7 @@ export function createWebGLRenderer(canvas: HTMLCanvasElement): Renderer | null 
     // Filter styles fade to the photo on the final reveal (see EXPERIMENT_FRAGMENT).
     set1("u_reveal", lerp(from.colour ? 1 : 0, to.colour ? 1 : 0, e))
 
-    if (to.kind === "echo" && from.kind === "echo") {
-      set1("u_amount", lerp(from.offset, to.offset, e))
-      set1("u_angle", to.angle)
-    } else if (to.kind === "slices" && from.kind === "slices") {
+    if (to.kind === "slices" && from.kind === "slices") {
       // Bands slide back into line.
       set1("u_amount", lerp(from.shift, to.shift, e))
       set1("u_bandCount", to.offsets.length)
@@ -437,18 +349,6 @@ export function createWebGLRenderer(canvas: HTMLCanvasElement): Renderer | null 
       // The waves flow during the transition and come back to the seeded phase.
       const swing = Math.sin(Math.PI * e) * Math.PI
       ctx.uniform4fv(uniform(p, "u_phases"), new Float32Array(to.phases.map((ph) => ph + swing)))
-    } else if (to.kind === "halftone" && from.kind === "halftone") {
-      set1("u_amount", lerp(from.cell, to.cell, e))
-    } else if (to.kind === "dither" && from.kind === "dither") {
-      set1("u_amount", lerp(from.cell, to.cell, e))
-    } else if (to.kind === "ascii" && from.kind === "ascii") {
-      bindImage(p, "u_glyphs", GLYPH_UNIT, glyphTexture())
-      set1("u_amount", lerp(from.cell, to.cell, e))
-    } else if (to.kind === "scanlines" && from.kind === "scanlines") {
-      set1("u_amount", lerp(from.cover, to.cover, e))
-      set1("u_lines", to.lines)
-    } else if (to.kind === "edges" && from.kind === "edges") {
-      set1("u_amount", lerp(from.threshold, to.threshold, e))
     } else if (to.kind === "motionBlur" && from.kind === "motionBlur") {
       set1("u_amount", lerp(from.length, to.length, e))
       set1("u_angle", to.angle)
@@ -549,10 +449,6 @@ export function createWebGLRenderer(canvas: HTMLCanvasElement): Renderer | null 
       freeTargets()
       if (imageTexture) ctx.deleteTexture(imageTexture)
       imageTexture = null
-      if (noise) ctx.deleteTexture(noise.texture)
-      noise = null
-      if (glyphs) ctx.deleteTexture(glyphs)
-      glyphs = null
     },
   }
 }

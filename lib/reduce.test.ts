@@ -36,7 +36,7 @@ describe("reduceRound", () => {
     expect(roundResult(state, settings.scoring)).toEqual({
       won: true,
       stage,
-      score: settings.scoring.stageBase[stage - 1] + 950,
+      score: settings.scoring.stageBase[stage - 1] + 950 - (stage - 1) * settings.scoring.skipPenalty,
       elapsedSeconds: 10,
       wrongGuesses: 0,
     })
@@ -53,6 +53,16 @@ describe("reduceRound", () => {
     expect(wrong.locked).toBe(true)
     expect(wrong.wrongGuesses).toBe(1)
     expect(reduceRound(wrong, guess("wolf"))).toBe(wrong)
+  })
+
+  it("charges a skip when Reveal is used with no guess, and more when the guess was wrong", () => {
+    const skipped = play(start, reveal(), "settle", guess("wolf", 0))
+    const wrong = play(start, guess("dog"), reveal(), "settle", guess("wolf", 0))
+    expect(skipped.skips).toBe(1)
+    expect(wrong.skips).toBe(0)
+    expect(wrong.wrongGuesses).toBe(1)
+    expect(roundResult(skipped, settings.scoring)?.score).toBe(4000 + 1000 - 200)
+    expect(roundResult(wrong, settings.scoring)?.score).toBe(4000 + 1000 - 400)
   })
 
   it("unlocks Guess after Reveal, keeping the penalty", () => {

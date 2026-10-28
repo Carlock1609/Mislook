@@ -4,8 +4,9 @@
  * ```text
  * stageBase    = [5000, 4000, 3000, 2000, 1000][stage - 1]
  * timeBonus    = max(0, 1000 - elapsedSeconds * 5)
+ * skipPenalty  = skips * 200
  * wrongPenalty = wrongGuesses * 400
- * win          = max(100, stageBase + timeBonus - wrongPenalty)
+ * win          = max(100, stageBase + timeBonus - skipPenalty - wrongPenalty)
  * miss         = 0
  * ```
  */
@@ -16,6 +17,8 @@ export type Scoring = {
   timeBonusMax: number
   timeBonusPerSecond: number
   wrongPenalty: number
+  /** Charged once per stage left without a guess. Less than `wrongPenalty`. */
+  skipPenalty: number
   winFloor: number
   lowBonusThreshold: number
 }
@@ -36,9 +39,13 @@ export function isLowBonus(bonus: number, scoring: Scoring) {
 }
 
 /** What a correct guess would score right now. This is also the score of a win. */
-export function pointsAvailable(stage: number, elapsed: number, wrongGuesses: number, scoring: Scoring) {
-  return Math.max(
-    scoring.winFloor,
-    scoring.stageBase[stage - 1] + timeBonus(elapsed, scoring) - wrongGuesses * scoring.wrongPenalty,
-  )
+export function pointsAvailable(
+  stage: number,
+  elapsed: number,
+  wrongGuesses: number,
+  skips: number,
+  scoring: Scoring,
+) {
+  const penalties = wrongGuesses * scoring.wrongPenalty + skips * scoring.skipPenalty
+  return Math.max(scoring.winFloor, scoring.stageBase[stage - 1] + timeBonus(elapsed, scoring) - penalties)
 }

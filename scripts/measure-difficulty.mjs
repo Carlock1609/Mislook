@@ -65,9 +65,6 @@ const sampler = (img) => (u, v) => {
   return top * (1 - fy) + bottom * fy
 }
 
-/** Approximate ink coverage of each ASCII glyph, drawn as a centred square (no fonts in Node). */
-const GLYPH_INK = [0, 0.04, 0.08, 0.1, 0.18, 0.2, 0.24, 0.42, 0.38, 0.5]
-
 /** Draws one settled scene as luma, mirroring canvas2d.ts. */
 function render(scene, img) {
   const lumaAt = sampler(img)
@@ -104,9 +101,6 @@ function render(scene, img) {
       each((u, v) => (scene.hidden[Math.floor(v * g) * g + Math.floor(u * g)] ? 0 : lumaAt(u, v)))
       break
     }
-    case "twoTone":
-      each((u, v) => S.posterize(lumaAt(u, v), scene.levels, scene.bias))
-      break
     case "ripple":
       from((u, v) => {
         const [dx, dy] = S.rippleOffset(u, v, scene.amplitude, scene.waves, scene.phaseX, scene.phaseY)
@@ -129,81 +123,20 @@ function render(scene, img) {
     case "keyholes":
       each((u, v) => (scene.holes.some((h) => h.r > 0 && Math.hypot(u - h.x, v - h.y) < h.r) ? lumaAt(u, v) : 0))
       break
-    case "shards": {
-      const inside = (t, x, y) => {
-        const d = (ax, ay, bx, by) => (x - bx) * (ay - by) - (ax - bx) * (y - by)
-        const d1 = d(t[0], t[1], t[2], t[3])
-        const d2 = d(t[2], t[3], t[4], t[5])
-        const d3 = d(t[4], t[5], t[0], t[1])
-        return !((d1 < 0 || d2 < 0 || d3 < 0) && (d1 > 0 || d2 > 0 || d3 > 0))
-      }
-      each((u, v) => {
-        let value = 0
-        for (const s of scene.shards) {
-          // Undo the shard's nudge and turn to find the home point it shows.
-          const px = u - s.pivotX - s.dx
-          const py = v - s.pivotY - s.dy
-          const c = Math.cos(-s.rot)
-          const n = Math.sin(-s.rot)
-          const hx = s.pivotX + px * c - py * n
-          const hy = s.pivotY + px * n + py * c
-          if (inside(s.tri, hx, hy)) value = hx >= 0 && hx <= 1 && hy >= 0 && hy <= 1 ? lumaAt(hx, hy) : 0
-        }
-        return value
-      })
-      break
-    }
-    case "melt":
-      from((u, v) => S.meltSource(u, v, scene.amount, scene.phases))
-      break
-    case "static": {
-      const noise = S.staticNoise(scene.seed)
-      const n = S.NOISE_SIZE
-      each((u, v) => {
-        const l = lumaAt(u, v)
-        return l + (noise[Math.floor(v * n) * n + Math.floor(u * n)] / 255 - l) * scene.amount
-      })
-      break
-    }
     case "fisheye":
       from((u, v) => S.fisheyeSource(u, v, scene.strength, scene.centerX, scene.centerY))
       break
     case "tunnel":
       from((u, v) => S.tunnelSource(u, v, scene.scale, scene.twist, scene.centerX, scene.centerY))
       break
-    case "negative":
-      each((u, v) => S.negate(lumaAt(u, v), scene.invert, scene.contrast))
-      break
     case "kaleidoscope":
       from((u, v) => S.kaleidoscopeSource(u, v, scene.amount, scene.segments, scene.spin, scene.source))
-      break
-    case "echo":
-      each((u, v) => S.echoValue(u, v, scene.offset, scene.angle, lumaAt))
       break
     case "slices":
       from((u, v) => S.sliceSource(u, v, scene.shift, scene.offsets))
       break
     case "liquid":
       from((u, v) => S.liquidSource(u, v, scene.amplitude, scene.phases))
-      break
-    case "halftone":
-      each((u, v) => S.halftoneValue(u, v, scene.cell, lumaAt))
-      break
-    case "dither":
-      each((u, v) => S.ditherValue(u, v, scene.cell, lumaAt))
-      break
-    case "ascii":
-      each((u, v) => {
-        const { glyph, localX, localY } = S.asciiCell(u, v, scene.cell, lumaAt)
-        const half = Math.sqrt(GLYPH_INK[glyph]) / 2
-        return Math.abs(localX - 0.5) < half && Math.abs(localY - 0.5) < half ? 1 : 0
-      })
-      break
-    case "scanlines":
-      each((u, v) => S.scanlineValue(u, v, scene.cover, scene.lines, lumaAt))
-      break
-    case "edges":
-      each((u, v) => S.edgeValue(u, v, scene.threshold, lumaAt))
       break
     case "motionBlur":
       each((u, v) => S.motionBlurValue(u, v, scene.length, scene.angle, lumaAt))
@@ -315,23 +248,12 @@ for (const style of S.ALL_STYLES) {
 const RANGES = {
   "ring-lock": { turn: [1, 0.004] },
   shredder: { outOfPlace: [1, 0.06] },
-  "rotated-tiles": { turned: [1, 0.06] },
   keyholes: { holes: [2, 32], radius: [0.022, 0.17] },
-  "shattered-glass": { scatter: [3, 0.05] },
-  melt: { amount: [1.2, 0.03] },
-  static: { amount: [0.95, 0.2] },
   fisheye: { strength: [4, 0.05] },
   tunnel: { scale: [0.95, 0.1], twist: [0.7, 0.05] },
-  negative: { contrast: [0.06, 1] },
   kaleidoscope: { amount: [1, 0.02], segments: [12, 6] },
-  "rgb-split": { offset: [0.2, 0.006] },
   "slice-glitch": { shift: [1, 0.01] },
   "liquid-warp": { amplitude: [0.25, 0.008] },
-  halftone: { cell: [0.15, 0.012] },
-  dither: { cell: [0.1, 0.006] },
-  ascii: { cell: [0.12, 0.02] },
-  scanlines: { cover: [0.97, 0.35] },
-  edges: { threshold: [2, 0.05] },
   "motion-blur": { length: [0.5, 0.01] },
   mosaic: { cell: [0.2, 0.012] },
 }

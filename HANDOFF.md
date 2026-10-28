@@ -5,7 +5,7 @@ Where the build stands, how it deploys, and what's next. Start here when you pic
 - **What the game should do:** [mislook-app-brief.md](mislook-app-brief.md). This is the source of truth for rules, numbers and copy.
 - **How the code does it:** [documents/](documents/README.md). Covers architecture, rendering, distortion styles, the test panel, site stats and security.
 
-Last updated: 2026-10-19 (after build step 5).
+Last updated: 2026-10-27 (playable round on `cursor/wire-game-daily-lock`, ready to merge).
 
 ---
 
@@ -14,7 +14,7 @@ Last updated: 2026-10-19 (after build step 5).
 | # | Build step (from the brief) | State |
 | --- | --- | --- |
 | 1 | Shell: how to play, coming soon, game and result states | ✅ Done |
-| 2 | WebGL image with four v1 styles, transitions, Canvas 2D fallback, dev test panel | ✅ Done (plus many test-panel candidate styles and a difficulty calibration script) |
+| 2 | WebGL image with three v1 styles (tile shuffle, hidden tiles, ripple), transitions, Canvas 2D fallback, dev test panel | ✅ Done (plus test-panel candidates; two-tone and several experiments removed) |
 | 3 | Rules: `normalize`, `score`, `reduce`, `share`, with Vitest tests (also tests for `daily`) | ✅ Done (`npm test`) |
 | 4 | Wire the game: guess, reveal, timer, countdown, result | ✅ Done (`Mislook.tsx` uses `useReducer(reduceRound)`, live `pointsAvailable` / time bonus, `shareText`) |
 | 5 | Daily lock in `localStorage` | ✅ Done (`lib/storage.ts`; refresh after finishing reopens Result; `?day=` never reads/writes) |
@@ -23,6 +23,13 @@ Last updated: 2026-10-19 (after build step 5).
 | 8 | Real images and answers | ⬜ |
 
 The "Done when" criteria for each step are in the brief under **Build order**.
+
+Also in this branch, beyond steps 4 and 5:
+
+- A skip costs 200. A wrong guess still costs 400, and Reveal after a wrong guess is not charged again as a skip.
+- Share text is the puzzle date plus `WON` or `LOST`, the stage, the score, and the time. No square row.
+- How to play → game, and game → result, are a short fade. Stage reveals are unchanged.
+- Daily rotation is tile shuffle, hidden tiles, and ripple.
 
 ### Known placeholders
 

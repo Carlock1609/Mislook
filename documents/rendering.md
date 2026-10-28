@@ -10,7 +10,6 @@ Everything is in `lib/gl/`.
 | `webgl.ts` | The WebGL 1 renderer |
 | `shaders.ts` | GLSL sources for the WebGL renderer |
 | `canvas2d.ts` | The Canvas 2D fallback |
-| `glyphs.ts` | Glyph atlas for the ASCII experiment, shared by both renderers |
 
 ## From stage to pixels
 
@@ -46,11 +45,10 @@ Full-screen styles are written twice, once in TypeScript (`scene.ts`) and once i
 GLSL (`shaders.ts`), with the same formulas. Coordinates are `u, v` in [0, 1],
 origin top-left. Two shapes:
 
-- **Source mappings** (`ringSource`, `meltSource`, `fisheyeSource`, `tunnelSource`,
+- **Source mappings** (`ringSource`, `fisheyeSource`, `tunnelSource`,
   `kaleidoscopeSource`, `sliceSource`, `liquidSource`) return which point of the
   image to show at (u, v), or null for black.
-- **Value functions** (`echoValue`, `halftoneValue`, `ditherValue`, `edgeValue`,
-  `motionBlurValue`, `mosaicValue`, `scanlineValue`, `asciiCell`) return a grey
+- **Value functions** (`motionBlurValue`, `mosaicValue`) return a grey
   value, reading the image through a `lumaAt(u, v)` callback.
 
 When you change a formula, change both copies. The Canvas 2D fallback is the
@@ -62,12 +60,11 @@ Each frame is two passes:
 
 1. **Style pass** into an offscreen framebuffer. `drawStyle(from, to, e)` draws
    the in-between of two scenes at eased progress `e`:
-   - **Geometry styles** (tile shuffle, rotated tiles, shredder, shattered glass,
-     hidden tiles' black covers) build a vertex list of textured quads or
-     triangles and draw them with the `TILE` program. Each piece is lerped from
-     its old position/rotation to its new one.
+   - **Geometry styles** (tile shuffle, shredder, hidden tiles' black covers) build
+     a vertex list of textured quads and draw them with the `TILE` program. Each
+     piece is lerped from its old position to its new one.
    - **Full-screen styles** draw one quad with a fragment shader and lerp the
-     uniforms: `STYLE` (v1: two-tone, ripple), `CANDIDATE`, or `EXPERIMENT`.
+     uniforms: `STYLE` (v1: ripple), `CANDIDATE`, or `EXPERIMENT`.
 2. **Post pass** to the screen (`POST` program): glitch slices and an RGB split
    while a transition plays (the pattern changes only 3 times per transition,
    never per frame), a crossfade when the style kind changes or motion is
@@ -79,8 +76,8 @@ Details worth knowing:
   of their styles is shown. A device that can't compile them still plays the v1 styles.
 - GLSL ES 1.0 only guarantees constant indices into uniform arrays in fragment
   shaders, so ring lock and slice glitch loop over the array and pick the matching entry.
-- Lookup textures live on their own units (image 0, post framebuffers 1–2,
-  static noise 3, glyph atlas 4), so creating one never unbinds the image.
+- Lookup textures live on their own units (image 0, post framebuffers 1–2),
+  so creating one never unbinds the image.
 - `webglcontextlost` / `webglcontextrestored` are handled: `init()` rebuilds
   every GPU resource and lazy programs/textures are recreated on demand.
 
@@ -88,11 +85,10 @@ Details worth knowing:
 
 `TRANSITION_MS` is 1000. `MislookImage` asks for `stage` between stages, `final`
 into the clear image, and `none` otherwise. Within one kind the style pass
-interpolates, so rings turn back into line, strips and shards slide home,
+interpolates, so rings turn back into line, strips slide home,
 keyholes grow, and ripple and liquid waves flow and settle on the seeded phase.
-Filter-type experiments (halftone, dither, ASCII, scanlines, edges, mosaic) don't
-relax to "no effect" by themselves, so their final reveal fades the filter into
-the photo (`u_reveal`).
+Mosaic doesn't relax to "no effect" by itself, so its final reveal fades the
+filter into the photo (`u_reveal`).
 
 ## The Canvas 2D fallback (`canvas2d.ts`)
 

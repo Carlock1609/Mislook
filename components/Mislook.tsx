@@ -68,9 +68,8 @@ const noSubscribe = () => () => {}
 type Phase = "howToPlay" | "game" | "result"
 
 const SHOW_TEST_PANEL = process.env.NODE_ENV === "development"
-/** Landing → game tunnel: mid-point swaps the screen; full length matches the brief. */
-const TUNNEL_SWAP_MS = 500
-const TUNNEL_MS = 1000
+/** Screen change: fade out, swap, fade in. The timer waits until the game fade finishes. */
+const FADE_MS = 200
 
 /** Dev test panel overrides: display only, never the round itself. */
 type TestView = { imageIndex?: number; style?: AnyStyleId; stage?: StageView }
@@ -83,7 +82,9 @@ export default function Mislook() {
   const day = useSyncExternalStore(noSubscribe, getDay, () => null)
   const restored = useSyncExternalStore(noSubscribe, getRestoredResult, () => null)
   const [phase, setPhase] = useState<Phase>("howToPlay")
-  const [tunneling, setTunneling] = useState(false)
+  const [motion, setMotion] = useState<"out" | "in" | null>(null)
+  /** True while Play's fade is running, so the clock doesn't start under the landing screen. */
+  const [entering, setEntering] = useState(false)
   const [imageStatus, setImageStatus] = useState<ImageStatus>("loading")
   const [round, dispatch] = useReducer(reduceRound, initialRound)
   // null until the client interval runs — avoids Date.now() during prerender.
@@ -94,6 +95,21 @@ export default function Mislook() {
   const [siteStats, setSiteStats] = useState<Stats | null | undefined>(undefined)
   const timers = useRef<number[]>([])
   const savedRef = useRef(false)
+  const later = (fn: () => void, ms: number) => timers.current.push(window.setTimeout(fn, ms))
+
+  /** Fade the current screen out, then show `next`. Reduced motion swaps immediately. */
+  const fadeTo = (next: Phase) => {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      setPhase(next)
+      setMotion(null)
+      return
+    }
+    setMotion("out")
+    later(() => {
+      setPhase(next)
+      setMotion("in")
+    }, FADE_MS)
+  }
 
   useEffect(() => () => timers.current.forEach((id) => window.clearTimeout(id)), [])
   useEffect(() => {
@@ -111,13 +127,13 @@ export default function Mislook() {
     return () => window.clearInterval(id)
   }, [round.status, round.startedAt])
 
-  // Timer starts when stage 1 has settled: game visible, tunnel done, image ready.
+  // Timer starts when stage 1 has settled: game visible, intro fade done, image ready.
   // A failed image never starts the round.
   useEffect(() => {
-    if (phase !== "game" || tunneling || imageStatus !== "ready") return
+    if (phase !== "game" || entering || imageStatus !== "ready") return
     if (round.status !== "ready") return
     dispatch({ type: "start", now: Date.now() })
-  }, [phase, tunneling, imageStatus, round.status])
+  }, [phase, entering, imageStatus, round.status])
 
   // After a stage Reveal, unlock Guess/Reveal when the transition ends.
   useEffect(() => {
@@ -134,13 +150,11 @@ export default function Mislook() {
       saveDayResult(day.date, finished)
       savedRef.current = true
     }
-    const id = window.setTimeout(() => setPhase("result"), TRANSITION_MS)
+    const id = window.setTimeout(() => fadeTo("result"), TRANSITION_MS)
     return () => window.clearTimeout(id)
     // Only re-run when the round ends; `round` / `day` are read for the save payload.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: status is the trigger
   }, [round.status])
-
-  const later = (fn: () => void, ms: number) => timers.current.push(window.setTimeout(fn, ms))
 
   const stats = <SiteStats stats={siteStats} />
   const puzzle = day && !day.comingSoon ? day : null
@@ -157,20 +171,21 @@ export default function Mislook() {
 
   const clock = now ?? round.startedAt ?? 0
   const elapsed = roundElapsed(round, clock)
-  const points = pointsAvailable(round.stage, elapsed, round.wrongGuesses, settings.scoring)
+  const points = pointsAvailable(round.stage, elapsed, round.wrongGuesses, round.skips, settings.scoring)
   const bonus = timeBonus(elapsed, settings.scoring)
   const liveResult = roundResult(round, settings.scoring)
   const result = liveResult ?? restored
   // A refresh after finishing jumps straight to Result via the daily lock.
   const screen: Phase = phase === "howToPlay" && restored ? "result" : phase
-  const controlsBusy =
-    round.busy || round.status === "ready" || round.status === "won" || round.status === "missed"
+  const controlsBusy = round.busy || round.status === "ready" || round.status === "won" || round.status === "missed"
 
-  /** Plays the tunnel transition, then shows the game. The timer starts after stage 1 settles. */
+  /** Fades into the game. The timer starts after that fade, once stage 1 has settled. */
   const play = () => {
-    setTunneling(true)
-    later(() => setPhase("game"), TUNNEL_SWAP_MS)
-    later(() => setTunneling(false), TUNNEL_MS)
+    if (entering || motion === "out") return
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    if (!reduced) setEntering(true)
+    fadeTo("game")
+    if (!reduced) later(() => setEntering(false), FADE_MS * 2)
   }
 
   /** Checks a guess: a match wins, a miss locks Guess and costs the wrong-guess penalty. */
@@ -189,7 +204,7 @@ export default function Mislook() {
   const copyResult = async () => {
     if (!puzzle || !result) return false
     try {
-      await navigator.clipboard.writeText(shareText(puzzle.number, result))
+      await navigator.clipboard.writeText(shareText(puzzle.number, puzzle.date, result))
       return true
     } catch {
       return false
@@ -200,76 +215,76 @@ export default function Mislook() {
     <main className="relative isolate min-h-dvh overflow-x-hidden">
       <Background dim={screen === "game"} />
 
-      {screen === "howToPlay" && (
-        <HowToPlay
-          number={puzzle?.number ?? null}
-          comingSoon={day?.comingSoon ?? false}
-          ready={puzzle !== null}
-          onPlay={play}
-          stats={stats}
-          preload={
-            puzzle && (
-              // eslint-disable-next-line @next/next/no-img-element -- warms the cache for the game image
-              <img
-                src={imageSrc(puzzle.image)}
-                alt=""
-                aria-hidden="true"
-                className="hidden"
-                onLoad={() => setImageStatus("ready")}
-                onError={() => setImageStatus("error")}
-              />
-            )
-          }
-        />
-      )}
+      <div className={motion === "out" ? "screen-out" : motion === "in" ? "screen-in" : undefined}>
+        {screen === "howToPlay" && (
+          <HowToPlay
+            number={puzzle?.number ?? null}
+            comingSoon={day?.comingSoon ?? false}
+            ready={puzzle !== null}
+            onPlay={play}
+            stats={stats}
+            preload={
+              puzzle && (
+                // eslint-disable-next-line @next/next/no-img-element -- warms the cache for the game image
+                <img
+                  src={imageSrc(puzzle.image)}
+                  alt=""
+                  aria-hidden="true"
+                  className="hidden"
+                  onLoad={() => setImageStatus("ready")}
+                  onError={() => setImageStatus("error")}
+                />
+              )
+            }
+          />
+        )}
 
-      {screen === "game" && puzzle && (
-        <Game
-          number={puzzle.number}
-          view={view(testView.stage ?? (round.stage as StageView))}
-          stage={round.stage}
-          points={points}
-          bonus={bonus}
-          locked={round.locked}
-          busy={controlsBusy}
-          wrongCount={round.wrongGuesses}
-          imageStatus={imageStatus}
-          onImageStatus={setImageStatus}
-          onGuess={guess}
-          onReveal={reveal}
-          stats={stats}
-          testPanel={
-            SHOW_TEST_PANEL && (
-              <TestPanel
-                imageIndex={shownImageIndex}
-                imageCount={images.length}
-                style={testView.style ?? shownImage.style}
-                stage={testView.stage ?? (round.stage as StageView)}
-                tuning={tuning}
-                onCycleImage={() => setTestView((t) => ({ ...t, imageIndex: (shownImageIndex + 1) % images.length }))}
-                onStyle={(style) => setTestView((t) => ({ ...t, style }))}
-                onStage={(s) => setTestView((t) => ({ ...t, stage: s }))}
-                onTune={(style, values) =>
-                  setTuning((t) => ({ ...t, [style]: { ...t[style], [KNOBS[style].key]: values } }))
-                }
-              />
-            )
-          }
-        />
-      )}
+        {screen === "game" && puzzle && (
+          <Game
+            number={puzzle.number}
+            view={view(testView.stage ?? (round.stage as StageView))}
+            stage={round.stage}
+            points={points}
+            bonus={bonus}
+            locked={round.locked}
+            busy={controlsBusy}
+            wrongCount={round.wrongGuesses}
+            imageStatus={imageStatus}
+            onImageStatus={setImageStatus}
+            onGuess={guess}
+            onReveal={reveal}
+            stats={stats}
+            testPanel={
+              SHOW_TEST_PANEL && (
+                <TestPanel
+                  imageIndex={shownImageIndex}
+                  imageCount={images.length}
+                  style={testView.style ?? shownImage.style}
+                  stage={testView.stage ?? (round.stage as StageView)}
+                  tuning={tuning}
+                  onCycleImage={() => setTestView((t) => ({ ...t, imageIndex: (shownImageIndex + 1) % images.length }))}
+                  onStyle={(style) => setTestView((t) => ({ ...t, style }))}
+                  onStage={(s) => setTestView((t) => ({ ...t, stage: s }))}
+                  onTune={(style, values) =>
+                    setTuning((t) => ({ ...t, [style]: { ...t[style], [KNOBS[style].key]: values } }))
+                  }
+                />
+              )
+            }
+          />
+        )}
 
-      {screen === "result" && puzzle && result && (
-        <Result
-          number={puzzle.number}
-          view={view(result.stage as StageView)}
-          answer={puzzle.image.title}
-          result={result}
-          onCopy={copyResult}
-          stats={stats}
-        />
-      )}
-
-      {tunneling && <div className="play-tunnel" aria-hidden="true" />}
+        {screen === "result" && puzzle && result && (
+          <Result
+            number={puzzle.number}
+            view={view(result.stage as StageView)}
+            answer={puzzle.image.title}
+            result={result}
+            onCopy={copyResult}
+            stats={stats}
+          />
+        )}
+      </div>
     </main>
   )
 }

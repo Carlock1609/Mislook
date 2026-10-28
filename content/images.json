@@ -13,7 +13,7 @@
   },
   {
     "file": "902d31.webp",
-    "style": "two-tone",
+    "style": "ripple",
     "title": "Thanos",
     "accept": ["thanos"]
   },
@@ -37,7 +37,7 @@
   },
   {
     "file": "6ba992.webp",
-    "style": "two-tone",
+    "style": "tile-shuffle",
     "title": "Skyline",
     "accept": ["skyline", "city skyline", "city"]
   },
