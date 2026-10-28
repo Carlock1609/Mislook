@@ -3,11 +3,9 @@
 import { useState } from "react"
 import { STAGES } from "@/lib/content"
 import {
+  ALL_STYLES,
   type AnyStyleId,
-  CANDIDATE_STYLES,
-  EXPERIMENT_STYLES,
   KNOBS,
-  ROTATION_STYLES,
   type StageView,
   STYLE_LABELS,
   styleValues,
@@ -16,13 +14,6 @@ import {
 
 /** localStorage key remembering whether the panel is open (dev convenience only). */
 const OPEN_KEY = "mislook:test-panel-open"
-
-/** Style groups for the picker, in the order the panel lists them. */
-const STYLE_GROUPS: { label: string; styles: readonly AnyStyleId[] }[] = [
-  { label: "Rotation", styles: ROTATION_STYLES },
-  { label: "Candidates", styles: CANDIDATE_STYLES },
-  { label: "Experiments", styles: EXPERIMENT_STYLES },
-]
 
 function readOpen() {
   try {
@@ -113,14 +104,10 @@ export default function TestPanel({
               value={style}
               onChange={(event) => onStyle(event.target.value as AnyStyleId)}
             >
-              {STYLE_GROUPS.map((group) => (
-                <optgroup key={group.label} label={group.label}>
-                  {group.styles.map((id) => (
-                    <option key={id} value={id}>
-                      {STYLE_LABELS[id]}
-                    </option>
-                  ))}
-                </optgroup>
+              {ALL_STYLES.map((id) => (
+                <option key={id} value={id}>
+                  {STYLE_LABELS[id]}
+                </option>
               ))}
             </select>
           </div>

@@ -16,14 +16,16 @@
 import { settings } from "@/lib/content"
 import { seededRandom, shuffledIndices } from "@/lib/gl/random"
 
-/** Styles in the daily rotation. */
-export const ROTATION_STYLES = ["tile-shuffle", "hidden-tiles", "ripple"] as const
-/** Styles being judged in the test panel. They never join the rotation from here. */
-export const CANDIDATE_STYLES = ["ring-lock", "shredder", "keyholes"] as const
-/** Further experiments to judge by eye (from an outside list of distortion ideas). Test panel only. */
-export const EXPERIMENT_STYLES = ["liquid-warp"] as const
-/** Every style the test panel can show: rotation, then candidates, then experiments. */
-export const ALL_STYLES = [...ROTATION_STYLES, ...CANDIDATE_STYLES, ...EXPERIMENT_STYLES] as const
+/** Every style the test panel can show. Daily images may only use a `StyleId` from `lib/content.ts`. */
+export const ALL_STYLES = [
+  "tile-shuffle",
+  "hidden-tiles",
+  "ripple",
+  "ring-lock",
+  "shredder",
+  "keyholes",
+  "liquid-warp",
+] as const
 /** Any style id the renderers understand, including test-panel-only ones. */
 export type AnyStyleId = (typeof ALL_STYLES)[number]
 

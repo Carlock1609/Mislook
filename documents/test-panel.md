@@ -15,7 +15,7 @@ remembers the last state (`localStorage` key `mislook:test-panel-open`).
 | Control | What it does |
 | --- | --- |
 | **Image** | Cycles through `images.json` |
-| **Style** | Picks any style, grouped as Rotation, Candidates and Experiments |
+| **Style** | Picks any style from one list |
 | **Stage** | Jumps to stage 1–5 or the clear image; changing stage plays the real transition |
 | **Intensity** | Live-tunes the style's knob for the current stage (disabled on Clear) |
 | Values line | The knob's five current values, ready to copy into `settings.json` |
