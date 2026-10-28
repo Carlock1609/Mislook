@@ -280,7 +280,7 @@ Everything you'd want to change without touching components lives in `content/`.
 
 An image may also set `"focus": [0.5, 0.4]` to mark where the subject is; test-panel styles such as fisheye use it to aim away from the subject.
 
-v1 ships with **10 dummy images** and dummy answers. They will be replaced with the real list.
+The current ten photos and their keyword lists are in `content/images.json`. `title` is what the result shows. `accept` is every guess that wins.
 
 ### Images
 
@@ -454,6 +454,7 @@ Accounts, any database beyond the visit counter, leaderboard, admin page, mid-ro
 4. Likeness matching for near-miss guesses
 5. Leaderboard, then accounts, then server-checked scores
 6. Sound
+7. **Keyword difficulty meter.** Three settings, three keyword lists per photo. The meter chooses how specific a guess has to be. The broad list is today's `accept` array. See `documents/architecture.md`.
 
 ## Open items
 
@@ -461,6 +462,6 @@ Accounts, any database beyond the visit counter, leaderboard, admin page, mid-ro
 | --- | --- | --- |
 | Figma POC (see the Figma brief) | Build steps 1, 2, 7 | Figma |
 | How-to-play, win and miss copy | `copy.json` | You (placeholders until then) |
-| Real images (you generate them), with accepted answers and a style for each | Build step 8 | You |
+| Real images, with accepted answers and a style for each | Build step 8 | Done for the first ten |
 | Create the `mislook` repo and connect Vercel | Deploy | You |
 | Add Upstash Redis from the Vercel dashboard (free tier) | Site stats | You |

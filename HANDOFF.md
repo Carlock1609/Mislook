@@ -20,7 +20,7 @@ Last updated: 2026-10-27 (playable round on `cursor/wire-game-daily-lock`, ready
 | 5 | Daily lock in `localStorage` | ✅ Done (`lib/storage.ts`; refresh after finishing reopens Result; `?day=` never reads/writes) |
 | 6 | Share text, link preview card, site stats | 🟡 Site stats done. Share text is wired. **Next:** link preview card (`opengraph-image`) |
 | 7 | Op-art background, wordmark motion, keyboard/safe-area, loading/error states, a11y | ⬜ |
-| 8 | Real images and answers | ⬜ |
+| 8 | Real images and answers | ✅ Done (first ten in `content/images.json` and `public/images/`) |
 
 The "Done when" criteria for each step are in the brief under **Build order**.
 
@@ -33,7 +33,6 @@ Also in this branch, beyond steps 4 and 5:
 
 ### Known placeholders
 
-- `content/images.json`: 10 dummy images and answers (step 8).
 - `content/copy.json`: placeholder how-to-play, win and miss copy.
 - `motion` is in the brief's stack but **not installed yet**. Add it when the UI motion work starts (step 7).
 
@@ -55,7 +54,6 @@ Also in this branch, beyond steps 4 and 5:
 ### Before launch
 
 - Set `DAY_0` in `content/settings.json` to the real launch date. It is currently `2026-10-18`. The puzzle number and the image order both count from it.
-- Swap in the real images (step 8). Use random file names, square ~1200px `.webp`, in `public/images/`.
 - Text the production URL to yourself to check the link preview card (step 6).
 
 ---
@@ -82,7 +80,6 @@ Core play path through step 5 is in. Natural next pieces:
 
 - the link preview card (finishes step 6)
 - step 7 (polish)
-- step 8 (content)
 - style tuning in the TEST panel (copy the numbers into `settings.json`)
 
 ---
@@ -96,5 +93,6 @@ From the brief's **Later** list:
 - promoting candidate styles into rotation
 - near-miss matching
 - then a leaderboard and accounts
+- a keyword difficulty meter: three settings, three lists per photo (see [documents/architecture.md](documents/architecture.md)). Today's `accept` list is the broad one. The tighter lists are not written yet.
 
 All of these are out of scope until v1 ships.

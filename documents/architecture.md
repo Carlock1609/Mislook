@@ -42,7 +42,7 @@ lib/
   gl/                     everything that draws the puzzle image (see rendering.md)
 content/
   copy.json               every user-facing string
-  images.json             the image list: file, style, title, accepted answers, optional focus
+  images.json             one object per photo: title, keyword list, file, style
   settings.json           DAY_0, time zone, scoring, and every style's per-stage values
 public/images/            puzzle images
 scripts/
@@ -88,3 +88,34 @@ into the clear image, `none` for anything else).
 Anything tunable lives in `content/`. `lib/content.ts` imports the JSON and types
 it. Style stage values are read through `styleValues()` in `lib/gl/scene.ts`,
 which also layers the test panel's live tuning on top.
+
+### Keywords
+
+`content/images.json` is the only list of what each photo accepts. One object per
+photo, in play order. `title` is the name shown on the result. `accept` is every
+guess that wins for that photo. Matching is exact after normalization (case,
+punctuation, and a leading "the" do not count as different guesses), so the file
+keeps one written form of each guess.
+
+The files in `public/images/` use random names and are square. The source photos
+were portrait, so each one is fitted inside the square with a dark margin instead
+of being cropped or stretched.
+
+### TODO: keyword difficulty meter
+
+Not built. The idea is three difficulty settings, and three keyword lists on each
+photo. The meter picks which list is live. A harder setting keeps only the more
+specific names, so a broad guess can win on the easy setting and miss on the hard one.
+
+Today's `accept` array is the broad list. When this is built, split that array
+into the three levels in the same file, rather than adding a second place to edit:
+
+```json
+"keywords": {
+  "easy": ["Tatooine", "Star Wars", "Mos Eisley"],
+  "medium": ["Tatooine", "Planet Tatooine", "Twin Suns of Tatooine"],
+  "hard": ["Tatooine"]
+}
+```
+
+The medium and hard lists are not written yet.

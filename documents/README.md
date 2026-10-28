@@ -15,10 +15,11 @@ The product brief, `mislook-app-brief.md` at the repo root, is the source of tru
 
 ## Build status
 
-Written against build steps 1–5 of the brief, plus the site stats from step 6.
-`components/Mislook.tsx` drives the round with `useReducer(reduceRound)` and
-locks a finished day via `lib/storage.ts`. The link preview card, polish
-(step 7) and real images (step 8) haven't landed yet.
+Written against build steps 1–5 of the brief, plus the site stats from step 6
+and the first real image set (step 8). `components/Mislook.tsx` drives the round
+with `useReducer(reduceRound)` and locks a finished day via `lib/storage.ts`.
+The link preview card and polish (step 7) haven't landed yet. A keyword
+difficulty meter is noted in [architecture.md](architecture.md) and is not built.
 
 ## Checks
 
