@@ -40,6 +40,9 @@
   --motion-hover: 180ms;
   --motion-fast: 360ms;
   --motion-medium: 1000ms;
+  --motion-panel: 400ms;
+  --motion-stagger: 50ms;
+  --motion-wordmark: 900ms;
   --motion-reveal: 1000ms;
   --motion-background: 28s;
   color-scheme: dark;
@@ -57,7 +60,7 @@ body {
   font-synthesis: none;
 }
 
-/* Placeholder op-art background (CSS). Replaced by the WebGL shader in build step 7. */
+/* CSS op-art background. This is the v1 background; a shader version is not planned. */
 .op-art {
   position: fixed;
   inset: -35vmax;
@@ -122,6 +125,11 @@ body {
   transform: translate(3px, 1px);
   opacity: 0.75;
   animation: wordmark-jitter 4.5s steps(1) infinite;
+}
+
+/* Landing entrance holds the jitter until the slices have settled. */
+.wordmark__echo--hold {
+  animation: none;
 }
 
 /* Screen change: a short fade. Stage reveals stay on the image, not this wrapper. */
@@ -223,6 +231,25 @@ body {
   .op-art,
   .wordmark__echo {
     animation: none;
+  }
+
+  /* Final landing state, including before JavaScript runs. */
+  .landing-panel,
+  .landing-row,
+  .landing-slice {
+    transform: none !important;
+  }
+
+  .landing-row {
+    opacity: 1 !important;
+  }
+
+  .landing-echo {
+    opacity: 0.75 !important;
+  }
+
+  .landing-fringe {
+    opacity: 0 !important;
   }
 
   .screen-out,

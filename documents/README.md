@@ -15,11 +15,15 @@ The product brief, `mislook-app-brief.md` at the repo root, is the source of tru
 
 ## Build status
 
-Written against build steps 1–5 of the brief, plus the site stats from step 6
-and the first real image set (step 8). `components/Mislook.tsx` drives the round
-with `useReducer(reduceRound)` and locks a finished day via `lib/storage.ts`.
-The link preview card and polish (step 7) haven't landed yet. A keyword
-difficulty meter is noted in [architecture.md](architecture.md) and is not built.
+Written against build steps 1–6 of the brief and the first real image set
+(step 8). `components/Mislook.tsx` drives the round with `useReducer(reduceRound)`
+and locks a finished day via `lib/storage.ts`. The link preview card is the
+static image from `app/opengraph-image.tsx`. Step 7 is partly in: the result
+share sheet, a polite live region on the game screen, and the score count-up.
+Still left there: the op-art shader background, the wordmark landing animation,
+the `motion` library, and a check on a short phone with the keyboard open. A
+keyword difficulty meter is noted in [architecture.md](architecture.md) and is
+not built.
 
 ## Checks
 

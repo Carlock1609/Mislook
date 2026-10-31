@@ -13,9 +13,24 @@ const inter = Inter({
   subsets: ["latin"],
 })
 
+const title = "Mislook — a daily image guessing game"
+const description = "One image a day. See it before everyone else does."
+
 export const metadata: Metadata = {
-  title: "Mislook — a daily image guessing game",
-  description: "One image a day. See it before everyone else does.",
+  metadataBase: new URL("https://playmislook.com"),
+  title,
+  description,
+  openGraph: {
+    title,
+    description,
+    siteName: "Mislook",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title,
+    description,
+  },
 }
 
 export const viewport: Viewport = {
