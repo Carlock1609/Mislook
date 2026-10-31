@@ -1,5 +1,6 @@
 "use client"
 
+import { MotionConfig } from "motion/react"
 import { useEffect, useReducer, useRef, useState, useSyncExternalStore } from "react"
 import TestPanel from "@/components/dev/TestPanel"
 import Background from "@/components/fx/Background"
@@ -298,80 +299,84 @@ export default function Mislook() {
   }
 
   return (
-    <main className="relative isolate min-h-dvh overflow-x-hidden">
-      <Background dim={screen === "game"} />
+    <MotionConfig reducedMotion="user">
+      <main className="relative isolate min-h-dvh overflow-x-hidden">
+        <Background dim={screen === "game"} />
 
-      <div className={motion === "out" ? "screen-out" : motion === "in" ? "screen-in" : undefined}>
-        {screen === "howToPlay" && (
-          <HowToPlay
-            number={puzzle?.number ?? null}
-            comingSoon={day?.comingSoon ?? false}
-            ready={puzzle !== null}
-            onPlay={play}
-            stats={stats}
-            preload={
-              puzzle && (
-                // eslint-disable-next-line @next/next/no-img-element -- warms the cache for the game image
-                <img
-                  src={imageSrc(puzzle.image)}
-                  alt=""
-                  aria-hidden="true"
-                  className="hidden"
-                  onLoad={() => setImageStatus("ready")}
-                  onError={() => setImageStatus("error")}
-                />
-              )
-            }
-          />
-        )}
+        <div className={motion === "out" ? "screen-out" : motion === "in" ? "screen-in" : undefined}>
+          {screen === "howToPlay" && (
+            <HowToPlay
+              number={puzzle?.number ?? null}
+              comingSoon={day?.comingSoon ?? false}
+              ready={puzzle !== null}
+              onPlay={play}
+              stats={stats}
+              preload={
+                puzzle && (
+                  // eslint-disable-next-line @next/next/no-img-element -- warms the cache for the game image
+                  <img
+                    src={imageSrc(puzzle.image)}
+                    alt=""
+                    aria-hidden="true"
+                    className="hidden"
+                    onLoad={() => setImageStatus("ready")}
+                    onError={() => setImageStatus("error")}
+                  />
+                )
+              }
+            />
+          )}
 
-        {screen === "game" && puzzle && (
-          <Game
-            number={puzzle.number}
-            view={view(testView.stage ?? (round.stage as StageView))}
-            stage={round.stage}
-            status={round.status}
-            points={points}
-            bonus={bonus}
-            locked={round.locked}
-            busy={controlsBusy}
-            wrongCount={round.wrongGuesses}
-            imageStatus={imageStatus}
-            onImageStatus={setImageStatus}
-            onGuess={guess}
-            onReveal={reveal}
-            stats={stats}
-            testPanel={
-              showTestPanel(day) && (
-                <TestPanel
-                  imageIndex={shownImageIndex}
-                  imageCount={images.length}
-                  style={testView.style ?? shownImage.style}
-                  stage={testView.stage ?? (round.stage as StageView)}
-                  tuning={tuning}
-                  onCycleImage={() => setTestView((t) => ({ ...t, imageIndex: (shownImageIndex + 1) % images.length }))}
-                  onStyle={(style) => setTestView((t) => ({ ...t, style }))}
-                  onStage={(s) => setTestView((t) => ({ ...t, stage: s }))}
-                  onTune={(style, values) =>
-                    setTuning((t) => ({ ...t, [style]: { ...t[style], [KNOBS[style].key]: values } }))
-                  }
-                />
-              )
-            }
-          />
-        )}
+          {screen === "game" && puzzle && (
+            <Game
+              number={puzzle.number}
+              view={view(testView.stage ?? (round.stage as StageView))}
+              stage={round.stage}
+              status={round.status}
+              points={points}
+              bonus={bonus}
+              locked={round.locked}
+              busy={controlsBusy}
+              wrongCount={round.wrongGuesses}
+              imageStatus={imageStatus}
+              onImageStatus={setImageStatus}
+              onGuess={guess}
+              onReveal={reveal}
+              stats={stats}
+              testPanel={
+                showTestPanel(day) && (
+                  <TestPanel
+                    imageIndex={shownImageIndex}
+                    imageCount={images.length}
+                    style={testView.style ?? shownImage.style}
+                    stage={testView.stage ?? (round.stage as StageView)}
+                    tuning={tuning}
+                    onCycleImage={() =>
+                      setTestView((t) => ({ ...t, imageIndex: (shownImageIndex + 1) % images.length }))
+                    }
+                    onStyle={(style) => setTestView((t) => ({ ...t, style }))}
+                    onStage={(s) => setTestView((t) => ({ ...t, stage: s }))}
+                    onTune={(style, values) =>
+                      setTuning((t) => ({ ...t, [style]: { ...t[style], [KNOBS[style].key]: values } }))
+                    }
+                  />
+                )
+              }
+            />
+          )}
 
-        {screen === "result" && puzzle && result && (
-          <Result
-            number={puzzle.number}
-            view={view(result.stage as StageView)}
-            answer={shownImage.title}
-            result={result}
-            onShare={shareResult}
-            stats={stats}
-          />
-        )}
-      </div>
-    </main>
+          {screen === "result" && puzzle && result && (
+            <Result
+              number={puzzle.number}
+              view={view(result.stage as StageView)}
+              answer={shownImage.title}
+              result={result}
+              onShare={shareResult}
+              stats={stats}
+            />
+          )}
+        </div>
+      </main>
+    </MotionConfig>
   )
 }

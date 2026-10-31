@@ -6,6 +6,8 @@
   This Next version differs from older ones; read `node_modules/next/dist/docs/`
   before touching Next APIs (see `AGENTS.md`).
 - **Tailwind CSS v4**, configured in `app/globals.css` (design tokens as `@theme` variables).
+- **Motion** (`motion/react`) for the landing entrance only: the wordmark slices and the
+  how-to-play row stagger (`fx/Wordmark.tsx`, `HowToPlay.tsx`). Screen fades stay CSS.
 - **WebGL 1** written by hand (no Three.js or ogl), with a **Canvas 2D** fallback.
 - **Upstash Redis** over its REST API for the visit counter only.
 - Hosted on **Vercel**; pushes to `main` deploy.
@@ -26,7 +28,7 @@ components/
   game/                   Game screen, MislookImage (canvas), GuessBar, StageTrack, Countdown
   result/Result.tsx       result screen
   dev/TestPanel.tsx       development-only distortion tuning panel
-  fx/                     Background (op-art), Wordmark
+  fx/                     Background (CSS op-art, the v1 background), Wordmark (landing entrance)
   SiteStats.tsx, TopBar.tsx, ui.ts
 instrumentation-client.ts starts Vercel BotID in the browser
 next.config.ts            security headers (CSP etc.), BotID rewrites
