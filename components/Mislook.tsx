@@ -6,7 +6,7 @@ import Background from "@/components/fx/Background"
 import Game, { type ImageView } from "@/components/game/Game"
 import type { ImageStatus } from "@/components/game/MislookImage"
 import HowToPlay from "@/components/HowToPlay"
-import Result from "@/components/result/Result"
+import Result, { type ShareOutcome } from "@/components/result/Result"
 import SiteStats, { type Stats } from "@/components/SiteStats"
 import { imageSrc, images, type PuzzleImage, settings } from "@/lib/content"
 import { dateForDayIndex, dayIndexFor, imageIndexFor, puzzleNumberFor, readDayRequest } from "@/lib/daily"
@@ -21,7 +21,15 @@ import { loadStats } from "@/lib/stats"
 /** Today, as the client works it out: before `DAY_0`, or the puzzle number and image. */
 type Day =
   | { comingSoon: true; testing: boolean }
-  | { comingSoon: false; number: number; date: string; imageIndex: number; image: PuzzleImage; preview: boolean; testing: boolean }
+  | {
+      comingSoon: false
+      number: number
+      date: string
+      imageIndex: number
+      image: PuzzleImage
+      preview: boolean
+      testing: boolean
+    }
 
 // Resolved once on the client: the page is static, so the date can't come from the server.
 let resolvedDay: Day | undefined
@@ -265,14 +273,27 @@ export default function Mislook() {
     dispatch({ type: "reveal", now: Date.now() })
   }
 
-  /** Copies spoiler-free share text to the clipboard. Resolves false if the clipboard is blocked. */
-  const copyResult = async () => {
-    if (!puzzle || !result) return false
+  /**
+   * Opens the share sheet with the spoiler-free result text when the browser can share it.
+   * Otherwise copies. Cancelling the sheet does nothing.
+   */
+  const shareResult = async (): Promise<ShareOutcome> => {
+    if (!puzzle || !result) return "failed"
+    const text = shareText(puzzle.number, puzzle.date, result)
+    if (typeof navigator.share === "function" && navigator.canShare?.({ text }) !== false) {
+      try {
+        await navigator.share({ text })
+        return "shared"
+      } catch (error) {
+        // The user closed the sheet. Don't copy, and don't toast.
+        if (error instanceof DOMException && error.name === "AbortError") return "failed"
+      }
+    }
     try {
-      await navigator.clipboard.writeText(shareText(puzzle.number, puzzle.date, result))
-      return true
+      await navigator.clipboard.writeText(text)
+      return "copied"
     } catch {
-      return false
+      return "failed"
     }
   }
 
@@ -309,6 +330,7 @@ export default function Mislook() {
             number={puzzle.number}
             view={view(testView.stage ?? (round.stage as StageView))}
             stage={round.stage}
+            status={round.status}
             points={points}
             bonus={bonus}
             locked={round.locked}
@@ -345,7 +367,7 @@ export default function Mislook() {
             view={view(result.stage as StageView)}
             answer={shownImage.title}
             result={result}
-            onCopy={copyResult}
+            onShare={shareResult}
             stats={stats}
           />
         )}

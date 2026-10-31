@@ -32,7 +32,7 @@ function formatShareDate(date: string) {
   return `${MONTHS[month - 1]} ${day}, ${year}`
 }
 
-/** The text copied by Copy result. */
+/** The text shared or copied from the result. No answer, no link. */
 export function shareText(number: number, date: string, result: RoundResult) {
   const outcome = result.won ? "WON" : "LOST"
   const score = `${result.score.toLocaleString("en-US")} pts`

@@ -1,14 +1,15 @@
 "use client"
 
-import type { ReactNode } from "react"
+import { type ReactNode, useEffect, useRef, useState } from "react"
 import Countdown from "@/components/game/Countdown"
 import GuessBar from "@/components/game/GuessBar"
 import MislookImage, { type ImageStatus } from "@/components/game/MislookImage"
 import StageTrack from "@/components/game/StageTrack"
 import TopBar from "@/components/TopBar"
 import { label, panel } from "@/components/ui"
-import { copy, STAGES } from "@/lib/content"
+import { copy, fill, STAGES } from "@/lib/content"
 import type { AnyStyleId, StageView, Tuning } from "@/lib/gl/scene"
+import type { RoundStatus } from "@/lib/reduce"
 
 /** What the image shows. Normally the round's own image and stage; the dev test panel can override it. */
 export type ImageView = {
@@ -20,11 +21,49 @@ export type ImageView = {
   tuning?: Tuning
 }
 
+/**
+ * Polite announcements for the game screen. The first values are the starting
+ * stage, so they are not read. The clock is not an input, so ticks stay quiet.
+ * A repeated wrong guess changes the text (zero-width spaces) so it is read again.
+ */
+function useGameAnnouncement(stage: number, wrongCount: number, status: RoundStatus) {
+  const [announcement, setAnnouncement] = useState("")
+  const seen = useRef<{ stage: number; wrongs: number; status: RoundStatus } | null>(null)
+
+  useEffect(() => {
+    if (seen.current === null) {
+      seen.current = { stage, wrongs: wrongCount, status }
+      return
+    }
+    const previous = seen.current
+    seen.current = { stage, wrongs: wrongCount, status }
+
+    if (status === "won" && previous.status !== "won") {
+      setAnnouncement(copy.winTitle)
+      return
+    }
+    if (status === "missed" && previous.status !== "missed") {
+      setAnnouncement(copy.missTitle)
+      return
+    }
+    if (wrongCount !== previous.wrongs) {
+      setAnnouncement(`${copy.announceWrong}${"\u200B".repeat(wrongCount)}`)
+      return
+    }
+    if (stage !== previous.stage) {
+      setAnnouncement(fill(copy.announceStage, { stage, stages: STAGES }))
+    }
+  }, [stage, wrongCount, status])
+
+  return announcement
+}
+
 /** The game screen: the image, stage track, points, time bonus, and the guess bar. */
 export default function Game({
   number,
   view,
   stage,
+  status,
   points,
   bonus,
   locked,
@@ -40,6 +79,7 @@ export default function Game({
   number: number
   view: ImageView
   stage: number
+  status: RoundStatus
   points: number
   bonus: number
   locked: boolean
@@ -53,8 +93,13 @@ export default function Game({
   /** Development-only distortion test panel. */
   testPanel?: ReactNode
 }) {
+  const announcement = useGameAnnouncement(stage, wrongCount, status)
+
   return (
     <section className="mx-auto my-3 w-[calc(100%-24px)] md:my-4 md:w-[min(1180px,calc(100%-32px))]">
+      <p aria-live="polite" className="sr-only">
+        {announcement}
+      </p>
       {testPanel}
       <TopBar meta={`#${number}`} stats={stats} />
 

@@ -14,8 +14,11 @@
 
 ```text
 app/
-  layout.tsx              fonts, global CSS, metadata
+  layout.tsx              fonts, global CSS, metadata (metadataBase, Open Graph, Twitter)
   page.tsx                renders <Mislook />, the whole app
+  opengraph-image.tsx     static 1200×630 link-preview card (no daily image)
+  twitter-image.tsx       the same card, for X
+  fonts/                  Archivo Black (.ttf), bundled for the preview card
   api/stats/route.ts      GET/POST site stats (Redis)
 components/
   Mislook.tsx             top-level client component: day, phase, round state

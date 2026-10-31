@@ -1,6 +1,6 @@
 "use client"
 
-import { type ReactNode, useEffect, useState } from "react"
+import { type ReactNode, useEffect, useState, useSyncExternalStore } from "react"
 import type { ImageView } from "@/components/game/Game"
 import MislookImage, { type ImageStatus } from "@/components/game/MislookImage"
 import TopBar from "@/components/TopBar"
@@ -10,6 +10,61 @@ import { formatHms, formatMss, nextZonedMidnight } from "@/lib/daily"
 import type { RoundResult } from "@/lib/reduce"
 
 export type { RoundResult }
+
+const COUNT_UP_MS = 900
+
+/** What the result button did. Only `"copied"` shows the toast. */
+export type ShareOutcome = "shared" | "copied" | "failed"
+
+function subscribeReducedMotion(onChange: () => void) {
+  const media = window.matchMedia("(prefers-reduced-motion: reduce)")
+  media.addEventListener("change", onChange)
+  return () => media.removeEventListener("change", onChange)
+}
+
+function reducedMotionNow() {
+  return window.matchMedia("(prefers-reduced-motion: reduce)").matches
+}
+
+/** False during SSR, so the first paint matches the server. */
+function useReducedMotion() {
+  return useSyncExternalStore(subscribeReducedMotion, reducedMotionNow, () => false)
+}
+
+function subscribeShare() {
+  return () => {}
+}
+
+/** False during SSR, so the button label doesn't mismatch on hydration. */
+function useCanNativeShare() {
+  return useSyncExternalStore(
+    subscribeShare,
+    () => typeof navigator.share === "function",
+    () => false,
+  )
+}
+
+/** Counts from 0 to `target` once `active` is true, with an ease-out. */
+function useCountUp(target: number, ms: number, active: boolean) {
+  const [value, setValue] = useState(0)
+
+  useEffect(() => {
+    if (!active) return
+
+    let frame = 0
+    const start = performance.now()
+    const tick = (now: number) => {
+      const progress = Math.min(1, (now - start) / ms)
+      const eased = 1 - (1 - progress) ** 3
+      setValue(Math.round(eased * target))
+      if (progress < 1) frame = requestAnimationFrame(tick)
+    }
+    frame = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(frame)
+  }, [active, ms, target])
+
+  return value
+}
 
 /** Hours, minutes and seconds until the next Pacific midnight, ticking every second. */
 function NextImageCountdown() {
@@ -35,7 +90,7 @@ export default function Result({
   view,
   answer,
   result,
-  onCopy,
+  onShare,
   stats,
 }: {
   number: number
@@ -43,10 +98,12 @@ export default function Result({
   view: ImageView
   answer: string
   result: RoundResult
-  onCopy: () => Promise<boolean>
+  onShare: () => Promise<ShareOutcome>
   stats: ReactNode
 }) {
   const [copied, setCopied] = useState(false)
+  const canNativeShare = useCanNativeShare()
+  const reducedMotion = useReducedMotion()
   const [imageStatus, setImageStatus] = useState<ImageStatus>("loading")
   const [revealed, setRevealed] = useState(false)
   // Show the last stage first, then play the final reveal into the clear image.
@@ -56,6 +113,9 @@ export default function Result({
     return () => window.clearTimeout(id)
   }, [imageStatus])
   const stage = revealed ? 0 : view.stage
+  const countedScore = useCountUp(result.score, COUNT_UP_MS, revealed && !reducedMotion && result.score > 0)
+  // Reduced motion and a miss show the final number. Otherwise it stays at 0 until the reveal.
+  const shownScore = reducedMotion || result.score === 0 ? result.score : revealed ? countedScore : 0
 
   useEffect(() => {
     if (!copied) return
@@ -64,7 +124,7 @@ export default function Result({
   }, [copied])
 
   const statCells = [
-    [copy.resultScore, result.score.toLocaleString("en-US")],
+    [copy.resultScore, shownScore.toLocaleString("en-US")],
     [copy.resultStage, `${result.stage}/${STAGES}`],
     [copy.resultTime, formatMss(result.elapsedSeconds)],
     [copy.resultWrongGuesses, String(result.wrongGuesses)],
@@ -96,10 +156,7 @@ export default function Result({
 
           <dl className="mb-6 grid grid-cols-2 border-t border-l border-line">
             {statCells.map(([name, value]) => (
-              <div
-                key={name}
-                className="flex min-h-[76px] flex-col justify-center border-r border-b border-line p-3"
-              >
+              <div key={name} className="flex min-h-[76px] flex-col justify-center border-r border-b border-line p-3">
                 <dt className="text-micro font-semibold uppercase tracking-[0.13em] text-muted">{name}</dt>
                 <dd className="mt-1 font-display text-[22px] tabular-nums">{value}</dd>
               </div>
@@ -109,9 +166,11 @@ export default function Result({
           <button
             type="button"
             className={button({ variant: "primary", wide: true })}
-            onClick={async () => setCopied(await onCopy())}
+            onClick={async () => {
+              if ((await onShare()) === "copied") setCopied(true)
+            }}
           >
-            <span>{copy.copyResult}</span>
+            <span>{canNativeShare ? copy.shareResult : copy.copyResult}</span>
             <span aria-hidden="true">↗</span>
           </button>
 

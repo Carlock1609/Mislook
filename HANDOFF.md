@@ -5,7 +5,7 @@ Where the build stands, how it deploys, and what's next. Start here when you pic
 - **What the game should do:** [mislook-app-brief.md](mislook-app-brief.md). This is the source of truth for rules, numbers and copy.
 - **How the code does it:** [documents/](documents/README.md). Covers architecture, rendering, distortion styles, the test panel, site stats and security.
 
-Last updated: 2026-10-27 (playable round on `cursor/wire-game-daily-lock`, ready to merge).
+Last updated: 2026-10-31 (v1 polish on `cursor/v1-polish`: link preview card, share sheet, live region, score count-up).
 
 ---
 
@@ -18,8 +18,8 @@ Last updated: 2026-10-27 (playable round on `cursor/wire-game-daily-lock`, ready
 | 3 | Rules: `normalize`, `score`, `reduce`, `share`, with Vitest tests (also tests for `daily`) | ✅ Done (`npm test`) |
 | 4 | Wire the game: guess, reveal, timer, countdown, result | ✅ Done (`Mislook.tsx` uses `useReducer(reduceRound)`, live `pointsAvailable` / time bonus, `shareText`) |
 | 5 | Daily lock in `localStorage` | ✅ Done (`lib/storage.ts`; refresh after finishing reopens Result; `?day=` never reads/writes) |
-| 6 | Share text, link preview card, site stats | 🟡 Site stats done. Share text is wired. **Next:** link preview card (`opengraph-image`) |
-| 7 | Op-art background, wordmark motion, keyboard/safe-area, loading/error states, a11y | ⬜ |
+| 6 | Share text, link preview card, site stats | ✅ Done |
+| 7 | Op-art background, wordmark motion, keyboard/safe-area, loading/error states, a11y | 🟡 Share sheet, live region, and score count-up are in. Still left: the op-art shader background, the wordmark landing animation, the `motion` library, and a check on a short phone with the keyboard open |
 | 8 | Real images and answers | ✅ Done (first ten in `content/images.json` and `public/images/`) |
 
 The "Done when" criteria for each step are in the brief under **Build order**.
@@ -30,6 +30,12 @@ Also in this branch, beyond steps 4 and 5:
 - Share text is the puzzle date plus `WON` or `LOST`, the stage, the score, and the time. No square row.
 - How to play → game, and game → result, are a short fade. Stage reveals are unchanged.
 - Daily rotation is tile shuffle, hidden tiles, and ripple.
+
+Share sheet, live region, and count-up:
+
+- The result button opens the native share sheet when the browser has one (text only, no link). Cancelling it does nothing. Otherwise it copies, and the "Copied" toast shows only then.
+- One polite live region on the game screen announces the stage after Reveal, a wrong guess, and a win or miss. It stays quiet on the one-second clock. The visible "Wrong" text still shows.
+- The result score counts up over about 900ms when the clear image starts to resolve. Reduced motion shows the final number. A miss stays at 0.
 
 ### Known placeholders
 
@@ -77,10 +83,12 @@ npx tsc --noEmit && npm run lint && npm run build   # before pushing
 
 ### Order
 
-Core play path through step 5 is in. Natural next pieces:
+Core play path through step 6 is in, including the static link preview card. Part of step 7 is in too (share sheet, live region, score count-up). Still left:
 
-- the link preview card (finishes step 6)
-- step 7 (polish)
+- the op-art shader background
+- the wordmark landing animation
+- the `motion` library
+- a check on a short phone with the keyboard open
 - style tuning in the TEST panel (copy the numbers into `settings.json`)
 
 ---
